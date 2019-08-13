@@ -33,7 +33,7 @@ def detect_preamble(in_data):
     return max_idx
 
 
-def detect_data(in_data, answer):
+def detect_data(in_data):
 
     start = int(LEN_PREAMBLE - LEN_BIT * 0.5)
     new_data = list()
@@ -112,7 +112,7 @@ if __name__ == "__main__":
         fail = 0
         for signal in data_set[fn]:
             pre_idx = detect_preamble(signal.values)
-            decoded = detect_data(signal.values[pre_idx:], signal.epc)
+            decoded = detect_data(signal.values[pre_idx:])
             if decoded == signal.epc:
                 suc += 1
             else:

@@ -35,7 +35,6 @@ def read_file(file_arr):
     """
     signals = {}
     for file in file_arr:
-        print(file,  " read start")
         tmp = []
         with open(file, "r") as csvfile:
             reader = csv.reader(csvfile, delimiter=",")
@@ -49,7 +48,6 @@ def read_file(file_arr):
             continue
         signals[file] = tmp
         print(file, " read complete", len(signals[file]))
-        print()
 
     return signals
 

@@ -12,6 +12,7 @@ import sys
 
 from tensorflow.keras import Model, layers, callbacks, regularizers
 from sklearn.model_selection import KFold
+from tqdm import tqdm
 
 import read_dir as rd
 import rule_based as rb
@@ -80,7 +81,7 @@ def test_step(input):
             sig_arr[fn].append(signal.values)
             epc_arr[fn].append(signal.epc)
         pred = model(np.array(sig_arr[fn]))
-        for i in range(len(pred)):
+        for i in tqdm(range(len(pred))):
             pre_idx = rb.detect_preamble(pred[i])
             decoded = rb.detect_data(pred[i][pre_idx:])
             if decoded == epc_arr[fn][i]:
@@ -187,19 +188,19 @@ if __name__ == "__main__":
     for fold in range(NUM_FOLD):
         print("Train Start!")
         patience = 0
-        prev_loss = 987654321
+        min_loss = 987654321
         for epoch in range(EPOCHS):
             loss = train_step(train_data[fold])
             print("[Epoch {}] LOSS: {:.6f}".format(epoch + 1, loss))
-            if loss < 0.02:
+            if loss < 0.03:
                 break
-            if prev_loss < loss:
+            if min_loss < loss:
                 patience += 1
                 if patience == PATIENCE:
                     break
             else:
+                min_loss = loss
                 patience = 0
-            prev_loss = loss
 
         print("Test Start!")
         results = test_step(test_data[fold])

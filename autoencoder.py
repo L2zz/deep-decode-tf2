@@ -1,9 +1,7 @@
 """
 module for decoding with autoencoder
 TODO:
-    - Make batch from data_set
-    - Apply input class with Signal
-    - Separate result according to file name
+    - Implement CAE
 """
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -19,31 +17,55 @@ from signal_prep import Signal
 
 
 # Model Parameters
+POOL_SIZE = 2
+KERNEL_SIZE = 5
 INPUT = 6800
-HIDDEN1 = 4096
-HIDDEN2 = 2048
-HIDDEN3 = HIDDEN1
+CONV1 = 128
+CONV2 = 256
+CONV3 = CONV2
+CONV4 = CONV1
 OUTPUT = INPUT
 
-class AE(Model):
+
+class CAE(Model):
     def __init__(self):
-        super(AE, self).__init__()
-        self.regularizer = regularizers.l2(0.005)
-        self.hidden1 = layers.Dense(
-            HIDDEN1, input_shape=(INPUT,), activation="elu", kernel_regularizer=self.regularizer)
-        self.hidden2 = layers.Dense(
-            HIDDEN2, activation="elu", kernel_regularizer=self.regularizer)
-        self.hidden3 = layers.Dense(
-            HIDDEN3, activation="elu", kernel_regularizer=self.regularizer)
-        self.output_layer = layers.Dense(OUTPUT)
+        super(CAE, self).__init__()
         self.dp = layers.Dropout(DROPOUT_PROB)
+
+        self.conv1 = layers.Conv1D(
+            CONV1, kernel_size=KERNEL_SIZE, activation="elu", input_shape=(INPUT,))
+        self.pool1 = layers.MaxPooling1D(POOL_SIZE)
+
+        self.conv2 = layers.Conv1D(
+            CONV2, kernel_size=KERNEL_SIZE, activation="elu")
+        self.pool2 = layers.MaxPooling1D(POOL_SIZE)
+
+        self.conv3 = layers.Conv1D(
+            CONV3, kernel_size=KERNEL_SIZE, activation="elu")
+        self.unpool3 = layers.UpSampling1D(POOL_SIZE)
+
+        self.conv4 = layers.Conv1D(
+            CONV4, kernel_size=KERNEL_SIZE, activation="elu")
+        self.unpool4 = layers.UpSampling1D(POOL_SIZE)
+
+        self.output_layer = layers.Dense(OUTPUT)
 
     def call(self, x, is_training=False):
         if is_training:
             x = self.dp(x)
-        x = self.hidden1(x)
-        x = self.hidden2(x)
-        x = self.hidden3(x)
+
+        x = self.conv1(x)
+        x = self.pool1(x)
+
+        x = self.conv2(x)
+        x = self.pool2(x)
+
+        x = self.conv3(x)
+        x = self.unpool3(x)
+
+        x = self.conv4(x)
+        x = self.unpool4(x)
+
         x = self.output_layer(x)
 
         return x
@@ -57,8 +79,8 @@ def train_step(input):
         for signal in input:
             sig_arr.append(signal.values)
             epc_arr.append(signal.epc)
-        pred = model(np.array(sig_arr), is_training=True)
-        loss = tf.reduce_mean(tf.square(pred - gen_signal(epc_arr)))
+        pred = model(np.array([sig_arr]), is_training=True)
+        loss = tf.reduce_mean(tf.square(pred[0] - gen_signal(epc_arr)))
     trainable_variables = model.trainable_variables
     gradients = g.gradient(loss, trainable_variables)
     optimizer = tf.optimizers.Adam(LEARNING_RATE)
@@ -91,7 +113,7 @@ def test_step(input):
 
         print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
             fn, results[fn][0], results[fn][1],
-            float(results[fn][0])*100 / (results[fn][0] + results[fn][1])))
+            float(results[fn][0]) * 100 / (results[fn][0] + results[fn][1])))
 
     return results
 
@@ -269,7 +291,7 @@ if __name__ == "__main__":
             test_data[fold][fn] += [data_set[fn][i] for i in test_idx]
             fold += 1
 
-    model = AE()
+    model = CAE()
 
     for fold in range(NUM_FOLD):
         print("Train Start!")
@@ -296,5 +318,5 @@ if __name__ == "__main__":
             suc += results[fn][0]
             fail += result[fn][1]
         print("[TOTAL] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
-            suc, fail, float(suc*100/(suc+fail))))
+            suc, fail, float(suc * 100 / (suc + fail))))
         print()

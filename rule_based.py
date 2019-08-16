@@ -4,6 +4,8 @@ module for rule based decoding
 import numpy as np
 import sys
 
+from tqdm import tqdm
+
 import read_dir as rd
 from signal_prep import Signal
 
@@ -44,7 +46,7 @@ def detect_data(in_data):
     in_data = new_data + [0 for _ in range(LEN_BIT)]
 
     ret = []
-    window = range(-2, 3)
+    window = range(-1, 2)
 
     # FM0 mask
     mask0a = ((-1, ) * LEN_HALF_BIT + (1, ) * LEN_HALF_BIT) * 2
@@ -110,10 +112,10 @@ if __name__ == "__main__":
     for fn in data_set:
         suc = 0
         fail = 0
-        for signal in data_set[fn]:
-            pre_idx = detect_preamble(signal.values)
-            decoded = detect_data(signal.values[pre_idx:])
-            if decoded == signal.epc:
+        for i in tqdm(range(len(data_set[fn])), desc=fn, ncols=80):
+            pre_idx = detect_preamble(data_set[fn][i].values)
+            decoded = detect_data(data_set[fn][i].values[pre_idx:])
+            if decoded == data_set[fn][i].epc:
                 suc += 1
             else:
                 fail += 1

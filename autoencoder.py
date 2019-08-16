@@ -80,6 +80,7 @@ def test_step(input):
             sig_arr[fn].append(signal.values)
             epc_arr[fn].append(signal.epc)
         pred = model(np.array(sig_arr[fn]))
+        pred = pred.numpy()
         for i in tqdm(range(len(pred)), desc=fn, ncols=80):
             pre_idx = detect_preamble(pred[i])
             decoded = detect_data(pred[i][pre_idx:])

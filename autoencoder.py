@@ -1,9 +1,8 @@
 """
 module for decoding with autoencoder
 TODO:
-    - Make batch from data_set
-    - Apply input class with Signal
-    - Separate result according to file name
+    - Refactor
+    - Pydoc
 """
 import matplotlib.pyplot as plt
 import tensorflow as tf

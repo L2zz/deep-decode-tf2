@@ -248,7 +248,7 @@ if __name__ == "__main__":
     NUM_FOLD = 5
     EPOCHS = 50
     DROPOUT_PROB = 0.2
-    PATIENCE = 3
+    PATIENCE = 5
 
     DATA_DIR = sys.argv[1]
 

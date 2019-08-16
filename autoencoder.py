@@ -81,7 +81,7 @@ def test_step(input):
             sig_arr[fn].append(signal.values)
             epc_arr[fn].append(signal.epc)
         pred = model(np.array(sig_arr[fn]))
-        for i in tqdm(range(len(pred))):
+        for i in tqdm(range(len(pred)), desc=fn, ncols=80):
             pre_idx = rb.detect_preamble(pred[i])
             decoded = rb.detect_data(pred[i][pre_idx:])
             if decoded == epc_arr[fn][i]:
@@ -91,7 +91,7 @@ def test_step(input):
 
         print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
             fn, results[fn][0], results[fn][1],
-            float(results[fn][0]) / (results[fn][0] + results[fn][1]))*100)
+            float(results[fn][0])*100 / (results[fn][0] + results[fn][1])))
 
     return results
 
@@ -210,5 +210,5 @@ if __name__ == "__main__":
             suc += results[fn][0]
             fail += result[fn][1]
         print("[TOTAL] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
-            suc, fail, float(suc/(suc+fail))*100))
+            suc, fail, float(suc*100/(suc+fail))))
         print()

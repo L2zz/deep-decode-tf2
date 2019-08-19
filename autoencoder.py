@@ -3,6 +3,7 @@ module for decoding with autoencoder
 TODO:
     - Refactor
     - Pydoc
+    - Model save
 """
 import matplotlib.pyplot as plt
 import tensorflow as tf

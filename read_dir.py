@@ -25,7 +25,7 @@ def file_from_dir(target_dir):
 
     return file_list
 
-def read_file(file_arr):
+def read_file(file_arr, max_num_sig=0):
     """
     @param
         file_arr: list of target file names
@@ -44,6 +44,10 @@ def read_file(file_arr):
                 except Exception as ex:
                     print(ex)
                 tmp.append(Signal(file, s, len(tmp) + 1))
+                if max_num_sig == 0:
+                    continue
+                elif max_num_sig == len(tmp):
+                    break
         if len(tmp) == 0:
             continue
         signals[file] = tmp

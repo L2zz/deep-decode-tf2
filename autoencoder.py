@@ -293,7 +293,7 @@ if __name__ == "__main__":
         fail = 0
         for fn in results:
             suc += results[fn][0]
-            fail += result[fn][1]
+            fail += results[fn][1]
         print("[TOTAL] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
             suc, fail, float(suc*100/(suc+fail))))
         print()

@@ -44,9 +44,7 @@ def read_file(file_arr, max_num_sig=0):
                 except Exception as ex:
                     print(ex)
                 tmp.append(Signal(file, s, len(tmp) + 1))
-                if max_num_sig == 0:
-                    continue
-                elif max_num_sig == len(tmp):
+                if max_num_sig == len(tmp):
                     break
         if len(tmp) == 0:
             continue

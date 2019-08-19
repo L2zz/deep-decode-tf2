@@ -4,6 +4,7 @@ TODO:
     - Refactor
     - Pydoc
     - Model save
+    - Modify batch 
 """
 import matplotlib.pyplot as plt
 import tensorflow as tf

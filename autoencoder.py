@@ -49,20 +49,31 @@ class AE(Model):
         return x
 
 
+def shuffle_batch(features, batch_size):
+    rnd_idx = np.random.permutation(len(features))
+    n_batches = len(features) // batch_size
+    for batch_idx in np.array_split(rnd_idx, n_batches):
+        batch_x = features[batch_idx]
+        yield batch_x
+
+
 def train_step(input):
 
-    with tf.GradientTape() as g:
-        sig_arr = []
-        epc_arr = []
-        for signal in input:
-            sig_arr.append(signal.values)
-            epc_arr.append(signal.epc)
-        pred = model(np.array(sig_arr), is_training=True)
-        loss = tf.reduce_mean(tf.square(pred - gen_signal(epc_arr)))
-    trainable_variables = model.trainable_variables
-    gradients = g.gradient(loss, trainable_variables)
-    optimizer = tf.optimizers.Adam(LEARNING_RATE)
-    optimizer.apply_gradients(zip(gradients, trainable_variables))
+    num_batch = len(input) // BATCH_SIZE
+    batch_inputs = shuffle_batch(np.array(input), BATCH_SIZE)
+    for batch_input in batch_inputs:
+        with tf.GradientTape() as g:
+            sig_arr = []
+            epc_arr = []
+            for signal in batch_input:
+                sig_arr.append(signal.values)
+                epc_arr.append(signal.epc)
+            pred = model(np.array(sig_arr), is_training=True)
+            loss = tf.reduce_mean(tf.square(pred - gen_signal(epc_arr)))
+        trainable_variables = model.trainable_variables
+        gradients = g.gradient(loss, trainable_variables)
+        optimizer = tf.optimizers.Adam(LEARNING_RATE)
+        optimizer.apply_gradients(zip(gradients, trainable_variables))
 
     return loss
 
@@ -70,28 +81,31 @@ def train_step(input):
 def test_step(input):
 
     results = {}
-    sig_arr = {}
-    epc_arr = {}
-    for fn in input:
-        results[fn] = [0, 0]
-        sig_arr[fn] = []
-        epc_arr[fn] = []
-        for signal in input[fn]:
-            sig_arr[fn].append(signal.values)
-            epc_arr[fn].append(signal.epc)
-        pred = model(np.array(sig_arr[fn]))
-        pred = pred.numpy()
-        for i in tqdm(range(len(pred)), desc=fn, ncols=80):
-            pre_idx = detect_preamble(pred[i])
-            decoded = detect_data(pred[i][pre_idx:])
-            if decoded == epc_arr[fn][i]:
-                results[fn][0] += 1
-            else:
-                results[fn][1] += 1
+    num_batch = len(input) // BATCH_SIZE
+    batch_inputs = shuffle_batch(np.array(input), BATCH_SIZE)
+    for batch_input in batch_inputs:
+        sig_arr = {}
+        epc_arr = {}
+        for fn in batch_input:
+            results[fn] = [0, 0]
+            sig_arr[fn] = []
+            epc_arr[fn] = []
+            for signal in batch_input[fn]:
+                sig_arr[fn].append(signal.values)
+                epc_arr[fn].append(signal.epc)
+            pred = model(np.array(sig_arr[fn]))
+            pred = pred.numpy()
+            for i in tqdm(range(len(pred)), desc=fn, ncols=80):
+                pre_idx = detect_preamble(pred[i])
+                decoded = detect_data(pred[i][pre_idx:])
+                if decoded == epc_arr[fn][i]:
+                    results[fn][0] += 1
+                else:
+                    results[fn][1] += 1
 
-        print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
-            fn, results[fn][0], results[fn][1],
-            float(results[fn][0])*100 / (results[fn][0] + results[fn][1])))
+            print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+                fn, results[fn][0], results[fn][1],
+                float(results[fn][0])*100 / (results[fn][0] + results[fn][1])))
 
     return results
 
@@ -249,6 +263,7 @@ if __name__ == "__main__":
     EPOCHS = 50
     DROPOUT_PROB = 0.2
     PATIENCE = 5
+    BATCH_SIZE = 100
 
     DATA_DIR = sys.argv[1]
 

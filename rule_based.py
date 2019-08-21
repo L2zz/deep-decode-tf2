@@ -95,19 +95,19 @@ def detect_data(in_data):
 
     return ret
 
-NUM_BIT = 128
-LEN_BIT = 50
-
-LEN_HALF_BIT = LEN_BIT // 2
-
-NUM_PREAMBLE = 6
-LEN_PREAMBLE = LEN_BIT * NUM_PREAMBLE
 
 if __name__ == "__main__":
 
+    NUM_BIT = 128
+    LEN_BIT = 50
+    LEN_HALF_BIT = LEN_BIT // 2
+    NUM_PREAMBLE = 6
+    LEN_PREAMBLE = LEN_BIT * NUM_PREAMBLE
+
     DATA_DIR = sys.argv[1]
+    MAX_NUM_SIG = int(sys.argv[2])
     files = rd.file_from_dir(DATA_DIR)
-    data_set = rd.read_file(files)
+    data_set = rd.read_file(files, MAX_NUM_SIG)
 
     for fn in data_set:
         suc = 0

@@ -4,7 +4,7 @@ TODO:
     - Refactor
     - Pydoc
     - Model save
-    - Modify batch 
+    - Modify batch
 """
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -267,9 +267,10 @@ if __name__ == "__main__":
     BATCH_SIZE = 100
 
     DATA_DIR = sys.argv[1]
+    MAX_NUM_SIG = int(sys.argv[2])
 
     files = rd.file_from_dir(DATA_DIR)
-    data_set = rd.read_file(files)
+    data_set = rd.read_file(files, MAX_NUM_SIG)
 
     # Make train/test data set
     train_data = [[] for i in range(NUM_FOLD)]

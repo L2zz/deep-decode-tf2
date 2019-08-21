@@ -29,15 +29,18 @@ OUTPUT = INPUT
 class AE(Model):
     def __init__(self):
         super(AE, self).__init__()
-        self.regularizer = regularizers.l2(0.005)
+
+        regularizer = regularizers.l2(0.005)
+
         self.hidden1 = layers.Dense(
-            HIDDEN1, input_shape=(INPUT,), activation="elu", kernel_regularizer=self.regularizer)
+            HIDDEN1, input_shape=(INPUT,), activation="elu", kernel_regularizer=regularizer)
         self.hidden2 = layers.Dense(
-            HIDDEN2, activation="elu", kernel_regularizer=self.regularizer)
+            HIDDEN2, activation="elu", kernel_regularizer=regularizer)
         self.hidden3 = layers.Dense(
-            HIDDEN3, activation="elu", kernel_regularizer=self.regularizer)
-        self.output_layer = layers.Dense(OUTPUT)
+            HIDDEN3, activation="elu", kernel_regularizer=regularizer)
+        self.output_layer = layers.Dense(OUTPUT, activtion="sigmoid")
         self.dp = layers.Dropout(DROPOUT_PROB)
+
 
     def call(self, x, is_training=False):
         if is_training:
@@ -51,6 +54,7 @@ class AE(Model):
 
 
 def shuffle_batch(features, batch_size):
+
     rnd_idx = np.random.permutation(len(features))
     n_batches = len(features) // batch_size
     for batch_idx in np.array_split(rnd_idx, n_batches):
@@ -82,31 +86,28 @@ def train_step(input):
 def test_step(input):
 
     results = {}
-    num_batch = len(input) // BATCH_SIZE
-    batch_inputs = shuffle_batch(np.array(input), BATCH_SIZE)
-    for batch_input in batch_inputs:
-        sig_arr = {}
-        epc_arr = {}
-        for fn in batch_input:
-            results[fn] = [0, 0]
-            sig_arr[fn] = []
-            epc_arr[fn] = []
-            for signal in batch_input[fn]:
-                sig_arr[fn].append(signal.values)
-                epc_arr[fn].append(signal.epc)
-            pred = model(np.array(sig_arr[fn]))
-            pred = pred.numpy()
-            for i in tqdm(range(len(pred)), desc=fn, ncols=80):
-                pre_idx = detect_preamble(pred[i])
-                decoded = detect_data(pred[i][pre_idx:])
-                if decoded == epc_arr[fn][i]:
-                    results[fn][0] += 1
-                else:
-                    results[fn][1] += 1
+    sig_arr = {}
+    epc_arr = {}
+    for fn in input:
+        results[fn] = [0, 0]
+        sig_arr[fn] = []
+        epc_arr[fn] = []
+        for signal in input[fn]:
+            sig_arr[fn].append(signal.values)
+            epc_arr[fn].append(signal.epc)
+        pred = model(np.array(sig_arr[fn]))
+        pred = pred.numpy()
+        for i in tqdm(range(len(pred)), desc=fn, ncols=80):
+            pre_idx = detect_preamble(pred[i])
+            decoded = detect_data(pred[i][pre_idx:])
+            if decoded == epc_arr[fn][i]:
+                results[fn][0] += 1
+            else:
+                results[fn][1] += 1
 
-            print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
-                fn, results[fn][0], results[fn][1],
-                float(results[fn][0])*100 / (results[fn][0] + results[fn][1])))
+        print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+            fn, results[fn][0], results[fn][1],
+            float(results[fn][0])*100 / (results[fn][0] + results[fn][1])))
 
     return results
 

@@ -51,6 +51,7 @@ class AE(Model):
         return Model(self.input_layer, output_layer)
 
     def train_model(self, train):
+        
         early_stopping = callbacks.EarlyStopping(monitor='loss', min_delta=0,
                                                  patience=PATIENCE, verbose=1, mode='auto')
         sig_arr = []
@@ -242,7 +243,7 @@ if __name__ == "__main__":
 
     LEARNING_RATE = 0.0005
     NUM_FOLD = 5
-    EPOCHS = 500
+    EPOCHS = 100
     PATIENCE = 5
     DROPOUT_PROB = 0.
     BATCH_SIZE = 100

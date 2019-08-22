@@ -12,30 +12,41 @@ from signal_prep import Signal
 
 def detect_preamble(in_data):
     # preamble mask
-    mask = [1.0] * LEN_BIT  # 1
-    mask += [-1.0] * LEN_HALF_BIT  # 2
-    mask += [1.0] * LEN_HALF_BIT
-    mask += [-1.0] * LEN_BIT  # 3
-    mask += [1.0] * LEN_HALF_BIT  # 4
-    mask += [-1.0] * LEN_HALF_BIT
-    mask += [-1.0] * LEN_BIT  # 5
-    mask += [1.0] * LEN_BIT  # 6
+    mask1 = [1.0] * LEN_BIT  # 1
+    mask1 += [-1.0] * LEN_HALF_BIT  # 2
+    mask1 += [1.0] * LEN_HALF_BIT
+    mask1 += [-1.0] * LEN_BIT  # 3
+    mask1 += [1.0] * LEN_HALF_BIT  # 4
+    mask1 += [-1.0] * LEN_HALF_BIT
+    mask1 += [-1.0] * LEN_BIT  # 5
+    mask1 += [1.0] * LEN_BIT  # 6
+
+    mask2 = [-i for i in mask1]
 
     max_idx = 0
+    reverse = False
     max_score = -987654321
     exp_range = range(40, 100)
     for i in exp_range:
-        score = 0.0  # correlation score
-        for j in range(len(mask)):
-            score += in_data[i + j] * mask[j]
-        if max_score < score:
+        score1 = 0.0  # correlation score
+        score2 = 0.0
+        for j in range(len(mask1)):
+            score1 += in_data[i + j] * mask1[j]
+            score2 += in_data[i + j] * mask2[j]
+
+        if score1 > score2 and score1 > max_score:
             max_idx = i
-            max_score = score
+            max_score = score1
+            reverse = False
+        elif score2 > score1 and score2 > max_score:
+            max_idx = i
+            max_score = score2
+            reverse = True
 
-    return max_idx
+    return max_idx, reverse
 
 
-def detect_data(in_data):
+def detect_data(in_data, reverse):
 
     start = int(LEN_PREAMBLE - LEN_BIT * 0.5)
     new_data = list()
@@ -56,7 +67,11 @@ def detect_data(in_data):
     mask1b = (-1, ) * LEN_HALF_BIT + (1, ) * LEN_HALF_BIT + \
         (1, ) * LEN_HALF_BIT + (-1, ) * LEN_HALF_BIT
     data = {mask0a: 0, mask0b: 0, mask1a: 1, mask1b: 1}
-    state = 1
+
+    if reverse:
+        state = 0
+    else:
+        state = 1
 
     cur_index = 0
     for nbits in range(NUM_BIT):
@@ -113,12 +128,12 @@ if __name__ == "__main__":
         suc = 0
         fail = 0
         for i in tqdm(range(len(data_set[fn])), desc=fn, ncols=80):
-            pre_idx = detect_preamble(data_set[fn][i].values)
-            decoded = detect_data(data_set[fn][i].values[pre_idx:])
+            pre_idx, reverse = detect_preamble(data_set[fn][i].values) # About 80 ~ 90
+            decoded = detect_data(data_set[fn][i].values[pre_idx:], reverse)
             if decoded == data_set[fn][i].epc:
                 suc += 1
             else:
                 fail += 1
 
-        print("%s %3d %3d ==> %.2f" %
-              (fn, suc, fail, float(suc) / (suc + fail)))
+        print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+              fn, suc, fail, float(suc*100 / (suc + fail))))

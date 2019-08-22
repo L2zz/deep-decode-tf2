@@ -4,7 +4,6 @@ TODO:
     - Refactor
     - Pydoc
     - Save model(check point)
-    - Handle reverse pattern
 """
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -57,11 +56,14 @@ class AE(Model):
                                                  patience=PATIENCE, verbose=1, mode='auto')
         sig_arr = []
         epc_arr = []
+        rev_arr = []
         for signal in train:
             sig_arr.append(signal.values)
             epc_arr.append(signal.epc)
+            _, reverse = detect_preamble(signal.values)
+            rev_arr.append(reverse)
         sig_arr = np.array(sig_arr)
-        epc_arr = gen_signal(epc_arr)
+        epc_arr = gen_signal(epc_arr, rev_arr)
         history = self.ae.fit(sig_arr, epc_arr, batch_size=BATCH_SIZE,
                               epochs=EPOCHS, callbacks=[early_stopping])
 
@@ -80,8 +82,8 @@ class AE(Model):
             sig_arr[fn] = np.array(sig_arr[fn])
             pred = self.ae.predict(sig_arr[fn])
             for i in tqdm(range(len(pred)), desc=fn, ncols=80):
-                pre_idx = detect_preamble(pred[i])
-                decoded = detect_data(pred[i][pre_idx:])
+                pre_idx, reverse = detect_preamble(pred[i])
+                decoded = detect_data(pred[i][pre_idx:], reverse)
                 if decoded == epc_arr[fn][i]:
                     results[fn][0] += 1
                 else:
@@ -96,30 +98,41 @@ class AE(Model):
 
 def detect_preamble(in_data):
     # preamble mask
-    mask = [1.0] * LEN_BIT  # 1
-    mask += [-1.0] * LEN_HALF_BIT  # 2
-    mask += [1.0] * LEN_HALF_BIT
-    mask += [-1.0] * LEN_BIT  # 3
-    mask += [1.0] * LEN_HALF_BIT  # 4
-    mask += [-1.0] * LEN_HALF_BIT
-    mask += [-1.0] * LEN_BIT  # 5
-    mask += [1.0] * LEN_BIT  # 6
+    mask1 = [1.0] * LEN_BIT  # 1
+    mask1 += [-1.0] * LEN_HALF_BIT  # 2
+    mask1 += [1.0] * LEN_HALF_BIT
+    mask1 += [-1.0] * LEN_BIT  # 3
+    mask1 += [1.0] * LEN_HALF_BIT  # 4
+    mask1 += [-1.0] * LEN_HALF_BIT
+    mask1 += [-1.0] * LEN_BIT  # 5
+    mask1 += [1.0] * LEN_BIT  # 6
+
+    mask2 = [-i for i in mask1]
 
     max_idx = 0
+    reverse = False
     max_score = -987654321
     exp_range = range(40, 100)
     for i in exp_range:
-        score = 0.0  # correlation score
-        for j in range(len(mask)):
-            score += in_data[i + j] * mask[j]
-        if max_score < score:
+        score1 = 0.0  # correlation score
+        score2 = 0.0
+        for j in range(len(mask1)):
+            score1 += in_data[i + j] * mask1[j]
+            score2 += in_data[i + j] * mask2[j]
+
+        if score1 > score2 and score1 > max_score:
             max_idx = i
-            max_score = score
+            max_score = score1
+            reverse = False
+        elif score2 > score1 and score2 > max_score:
+            max_idx = i
+            max_score = score2
+            reverse = True
 
-    return max_idx
+    return max_idx, reverse
 
 
-def detect_data(in_data):
+def detect_data(in_data, reverse):
 
     start = int(LEN_PREAMBLE - LEN_BIT * 0.5)
     new_data = list()
@@ -140,7 +153,11 @@ def detect_data(in_data):
     mask1b = (-1, ) * LEN_HALF_BIT + (1, ) * LEN_HALF_BIT + \
         (1, ) * LEN_HALF_BIT + (-1, ) * LEN_HALF_BIT
     data = {mask0a: 0, mask0b: 0, mask1a: 1, mask1b: 1}
-    state = 1
+
+    if reverse:
+        state = 0
+    else:
+        state = 1
 
     cur_index = 0
     for nbits in range(NUM_BIT):
@@ -180,7 +197,7 @@ def detect_data(in_data):
     return ret
 
 
-def gen_signal(epc_arr):
+def gen_signal(epc_arr, reverse_arr):
 
     outs = []
 
@@ -202,31 +219,44 @@ def gen_signal(epc_arr):
 
     padding = (INPUT - (NUM_BIT + NUM_PREAMBLE) * LEN_BIT) // 2
 
-    for epc in epc_arr:
-        state = type1b
+    for i in range(len(epc_arr)):
         out = []
-        out += [-0.5] * padding
-        out += preamble
+        if reverse_arr[i]:
+            state = type1a
+            out += [0.5] * padding
+            out += [-i for i in preamble]
+        else:
+            state = type1b
+            out += [-0.5] * padding
+            out += preamble
+
         for nbits in range(NUM_BIT):
              # FM0 state transition
             if state == type1b or state == type0b:
-                if epc[nbits] == 0:
+                if epc_arr[i][nbits] == 0:
                     state = type0b
                 else:
                     state = type1a
             elif state == type0a or state == type1a:
-                if epc[nbits] == 0:
+                if epc_arr[i][nbits] == 0:
                     state = type0a
                 else:
                     state = type1b
             out = out + state
 
         # dummy bit
-        if state == type0a or state == type1a:
-            out += [0.5] * LEN_BIT
-            out += [-0.5] * (padding - LEN_BIT)
+        if reverse_arr[i]:
+            if state == type0b or state == type1b:
+                out += [-0.5] * LEN_BIT
+                out += [0.5] * (padding - LEN_BIT)
+            else:
+                out += [0.5] * padding
         else:
-            out += [-0.5] * padding
+            if state == type0a or state == type1a:
+                out += [0.5] * LEN_BIT
+                out += [-0.5] * (padding - LEN_BIT)
+            else:
+                out += [-0.5] * padding
         outs.append(np.array(out))
 
     outs = np.array(outs)

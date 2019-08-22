@@ -3,8 +3,7 @@ module for decoding with autoencoder
 TODO:
     - Refactor
     - Pydoc
-    - Model save
-    - Modify batch
+    - Save model(check point)
 """
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -21,10 +20,9 @@ from signal_prep import Signal
 
 # Model Parameters
 INPUT = 6800
-HIDDEN1 = 4096
-HIDDEN2 = 2048
-HIDDEN3 = HIDDEN1
+HIDDEN1 = 256
 OUTPUT = INPUT
+
 
 class AE(Model):
     def __init__(self):
@@ -32,84 +30,66 @@ class AE(Model):
 
         regularizer = regularizers.l2(0.005)
 
+        self.input_layer = layers.Input(shape=(INPUT,))
         self.hidden1 = layers.Dense(
-            HIDDEN1, input_shape=(INPUT,), activation="elu", kernel_regularizer=regularizer)
-        self.hidden2 = layers.Dense(
-            HIDDEN2, activation="elu", kernel_regularizer=regularizer)
-        self.hidden3 = layers.Dense(
-            HIDDEN3, activation="elu", kernel_regularizer=regularizer)
-        self.output_layer = layers.Dense(OUTPUT, activtion="sigmoid")
+            HIDDEN1, activation="elu", kernel_regularizer=regularizer)
+        self.output_layer = layers.Dense(OUTPUT)
         self.dp = layers.Dropout(DROPOUT_PROB)
 
-
-    def call(self, x, is_training=False):
-        if is_training:
-            x = self.dp(x)
-        x = self.hidden1(x)
-        x = self.hidden2(x)
-        x = self.hidden3(x)
-        x = self.output_layer(x)
-
-        return x
-
-
-def shuffle_batch(features, batch_size):
-
-    rnd_idx = np.random.permutation(len(features))
-    n_batches = len(features) // batch_size
-    for batch_idx in np.array_split(rnd_idx, n_batches):
-        batch_x = features[batch_idx]
-        yield batch_x
-
-
-def train_step(input):
-
-    num_batch = len(input) // BATCH_SIZE
-    batch_inputs = shuffle_batch(np.array(input), BATCH_SIZE)
-    for batch_input in batch_inputs:
-        with tf.GradientTape() as g:
-            sig_arr = []
-            epc_arr = []
-            for signal in batch_input:
-                sig_arr.append(signal.values)
-                epc_arr.append(signal.epc)
-            pred = model(np.array(sig_arr), is_training=True)
-            loss = tf.reduce_mean(tf.square(pred - gen_signal(epc_arr)))
-        trainable_variables = model.trainable_variables
-        gradients = g.gradient(loss, trainable_variables)
         optimizer = tf.optimizers.Adam(LEARNING_RATE)
-        optimizer.apply_gradients(zip(gradients, trainable_variables))
 
-    return loss
+        self.ae = self.build_model()
+        self.ae.compile(loss="mse", optimizer=optimizer)
+        self.ae.summary()
 
+    def build_model(self):
 
-def test_step(input):
+        h1 = self.hidden1(self.input_layer)
+        d1 = self.dp(h1)
+        output_layer = self.output_layer(d1)
 
-    results = {}
-    sig_arr = {}
-    epc_arr = {}
-    for fn in input:
-        results[fn] = [0, 0]
-        sig_arr[fn] = []
-        epc_arr[fn] = []
-        for signal in input[fn]:
-            sig_arr[fn].append(signal.values)
-            epc_arr[fn].append(signal.epc)
-        pred = model(np.array(sig_arr[fn]))
-        pred = pred.numpy()
-        for i in tqdm(range(len(pred)), desc=fn, ncols=80):
-            pre_idx = detect_preamble(pred[i])
-            decoded = detect_data(pred[i][pre_idx:])
-            if decoded == epc_arr[fn][i]:
-                results[fn][0] += 1
-            else:
-                results[fn][1] += 1
+        return Model(self.input_layer, output_layer)
 
-        print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
-            fn, results[fn][0], results[fn][1],
-            float(results[fn][0])*100 / (results[fn][0] + results[fn][1])))
+    def train_model(self, train):
+        early_stopping = callbacks.EarlyStopping(monitor='loss', min_delta=0,
+                                                 patience=PATIENCE, verbose=1, mode='auto')
+        sig_arr = []
+        epc_arr = []
+        for signal in train:
+            sig_arr.append(signal.values)
+            epc_arr.append(signal.epc)
+        sig_arr = np.array(sig_arr)
+        epc_arr = gen_signal(epc_arr)
+        history = self.ae.fit(sig_arr, epc_arr, batch_size=BATCH_SIZE,
+                              epochs=EPOCHS, callbacks=[early_stopping])
 
-    return results
+    def test_model(self, test):
+
+        results = {}
+        sig_arr = {}
+        epc_arr = {}
+        for fn in test:
+            results[fn] = [0, 0]
+            sig_arr[fn] = []
+            epc_arr[fn] = []
+            for signal in test[fn]:
+                sig_arr[fn].append(signal.values)
+                epc_arr[fn].append(signal.epc)
+            sig_arr[fn] = np.array(sig_arr[fn])
+            pred = self.ae.predict(sig_arr[fn])
+            for i in tqdm(range(len(pred)), desc=fn, ncols=80):
+                pre_idx = detect_preamble(pred[i])
+                decoded = detect_data(pred[i][pre_idx:])
+                if decoded == epc_arr[fn][i]:
+                    results[fn][0] += 1
+                else:
+                    results[fn][1] += 1
+
+            print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+                fn, results[fn][0], results[fn][1],
+                float(results[fn][0]) * 100 / (results[fn][0] + results[fn][1])))
+
+        return results
 
 
 def detect_preamble(in_data):
@@ -262,9 +242,9 @@ if __name__ == "__main__":
 
     LEARNING_RATE = 0.0005
     NUM_FOLD = 5
-    EPOCHS = 50
-    DROPOUT_PROB = 0.2
+    EPOCHS = 500
     PATIENCE = 5
+    DROPOUT_PROB = 0.
     BATCH_SIZE = 100
 
     DATA_DIR = sys.argv[1]
@@ -290,29 +270,16 @@ if __name__ == "__main__":
     model = AE()
 
     for fold in range(NUM_FOLD):
-        print("Train Start!")
-        patience = 0
-        min_loss = 987654321
-        for epoch in range(EPOCHS):
-            loss = train_step(train_data[fold])
-            print("[Epoch {}] LOSS: {:.6f}".format(epoch + 1, loss))
-            if loss < 0.03:
-                break
-            if min_loss < loss:
-                patience += 1
-                if patience == PATIENCE:
-                    break
-            else:
-                min_loss = loss
-                patience = 0
+        print("\n[{}] Train Start!".format(fold + 1))
+        model.train_model(train_data[fold])
+        print("\n[{}] Test Start!".format(fold + 1))
+        results = model.test_model(test_data[fold])
 
-        print("Test Start!")
-        results = test_step(test_data[fold])
         suc = 0
         fail = 0
         for fn in results:
             suc += results[fn][0]
             fail += results[fn][1]
-        print("[TOTAL] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
-            suc, fail, float(suc*100/(suc+fail))))
+        print("\n[TOTAL] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+            suc, fail, float(suc * 100 / (suc + fail))))
         print()

@@ -52,20 +52,19 @@ class AE(Model):
 
     def train_model(self, train):
 
-        early_stopping = callbacks.EarlyStopping(monitor='loss', min_delta=0,
+        early_stopping = callbacks.EarlyStopping(monitor='val_loss', min_delta=0,
                                                  patience=PATIENCE, verbose=1, mode='auto')
         sig_arr = []
         epc_arr = []
         rev_arr = []
-        for signal in train:
-            sig_arr.append(signal.values)
-            epc_arr.append(signal.epc)
-            _, reverse = detect_preamble(signal.values)
+        for i in tqdm(range(len(train)), desc="Prepare Train", ncols=80):
+            sig_arr.append(train[i].values)
+            epc_arr.append(train[i].epc)
+            _, reverse = detect_preamble(train[i].values)
             rev_arr.append(reverse)
-        sig_arr = np.array(sig_arr)
-        epc_arr = gen_signal(epc_arr, rev_arr)
-        history = self.ae.fit(sig_arr, epc_arr, batch_size=BATCH_SIZE,
-                              epochs=EPOCHS, callbacks=[early_stopping])
+        history = self.ae.fit(np.array(sig_arr), gen_signal(epc_arr, rev_arr), verbose=1,
+                              batch_size=BATCH_SIZE, epochs=EPOCHS, validation_split=VALID_SPLIT,
+                              callbacks=[early_stopping])
 
     def test_model(self, test):
 
@@ -79,8 +78,7 @@ class AE(Model):
             for signal in test[fn]:
                 sig_arr[fn].append(signal.values)
                 epc_arr[fn].append(signal.epc)
-            sig_arr[fn] = np.array(sig_arr[fn])
-            pred = self.ae.predict(sig_arr[fn])
+            pred = self.ae.predict(np.array(sig_arr[fn]))
             for i in tqdm(range(len(pred)), desc=fn, ncols=80):
                 pre_idx, reverse = detect_preamble(pred[i])
                 decoded = detect_data(pred[i][pre_idx:], reverse)
@@ -277,6 +275,7 @@ if __name__ == "__main__":
     EPOCHS = 100
     PATIENCE = 5
     DROPOUT_PROB = 0.
+    VALID_SPLIT = 0.2
     BATCH_SIZE = 100
 
     DATA_DIR = sys.argv[1]

@@ -278,24 +278,34 @@ if __name__ == "__main__":
     VALID_SPLIT = 0.2
     BATCH_SIZE = 100
 
-    DATA_DIR = sys.argv[1]
-    MAX_NUM_SIG = int(sys.argv[2])
+    TRAIN_DATA_DIR = "data_good"
+    TEST_DATA_DIR = "data"
+    MAX_NUM_SIG = 1000
 
-    files = rd.file_from_dir(DATA_DIR)
-    data_set = rd.read_file(files, MAX_NUM_SIG)
+    train_files = rd.file_from_dir(TRAIN_DATA_DIR)
+    test_files = rd.file_from_dir(TEST_DATA_DIR)
+    train_data_set = rd.read_file(train_files, MAX_NUM_SIG)
+    test_data_set = rd.read_file(test_files, MAX_NUM_SIG)
 
     # Make train/test data set
     train_data = [[] for i in range(NUM_FOLD)]
     test_data = [{} for i in range(NUM_FOLD)]
 
     kf = KFold(n_splits=NUM_FOLD, shuffle=True)
-    for fn in sorted(data_set):
+    for fn in sorted(train_data_set):
+        fold = 0
+        for train_idx, test_idx in kf.split(train_data_set[fn]):
+            train_data[fold] += [train_data_set[fn][i] for i in train_idx]
+            train_data[fold] += [train_data_set[fn][i] for i in test_idx]
+            fold += 1
+
+    for fn in sorted(test_data_set):
         for i in range(NUM_FOLD):
             test_data[i][fn] = []
         fold = 0
-        for train_idx, test_idx in kf.split(data_set[fn]):
-            train_data[fold] += [data_set[fn][i] for i in train_idx]
-            test_data[fold][fn] += [data_set[fn][i] for i in test_idx]
+        for train_idx, test_idx in kf.split(test_data_set[fn]):
+            test_data[fold][fn] += [test_data_set[fn][i] for i in train_idx]
+            test_data[fold][fn] += [test_data_set[fn][i] for i in test_idx]
             fold += 1
 
     model = AE()

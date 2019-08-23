@@ -141,7 +141,7 @@ def detect_data(in_data, reverse):
     in_data = new_data + [0 for _ in range(LEN_BIT)]
 
     ret = []
-    window = range(-1, 2)
+    window = range(-3, 4)
 
     # FM0 mask
     mask0a = ((-1, ) * LEN_HALF_BIT + (1, ) * LEN_HALF_BIT) * 2

@@ -222,8 +222,8 @@ if __name__ == "__main__":
         suc = 0
         fail = 0
         for i in tqdm(range(len(data_set[fn])), desc=fn, ncols=80):
-            pre_idx, reverse = detect_preamble(data_set[fn][i].values) # About 80 ~ 90
-            decoded = detect_data(data_set[fn][i].values[pre_idx:], reverse)
+            pre_idx, _ = detect_preamble(data_set[fn][i].values) # About 80 ~ 90
+            decoded = detect_data(data_set[fn][i].values[pre_idx:])
             if decoded == data_set[fn][i].epc:
                 suc += 1
             else:

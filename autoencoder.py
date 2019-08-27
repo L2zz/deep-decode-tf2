@@ -97,7 +97,7 @@ if __name__ == "__main__":
     LEARNING_RATE = 0.0001
     NUM_FOLD = 5
     EPOCHS = 300
-    PATIENCE = 12
+    PATIENCE = 5
     DROPOUT_PROB = 0.
     VALID_SPLIT = 0.2
     BATCH_SIZE = 100

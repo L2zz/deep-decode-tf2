@@ -270,9 +270,9 @@ if __name__ == "__main__":
     NUM_PREAMBLE = 6
     LEN_PREAMBLE = LEN_BIT * NUM_PREAMBLE
 
-    LEARNING_RATE = 0.0005
+    LEARNING_RATE = 0.0001
     NUM_FOLD = 5
-    EPOCHS = 100
+    EPOCHS = 300
     PATIENCE = 5
     DROPOUT_PROB = 0.
     VALID_SPLIT = 0.2
@@ -280,7 +280,7 @@ if __name__ == "__main__":
 
     TRAIN_DATA_DIR = "data_good"
     TEST_DATA_DIR = "data"
-    MAX_NUM_SIG = 1000
+    MAX_NUM_SIG = 100
 
     train_files = rd.file_from_dir(TRAIN_DATA_DIR)
     test_files = rd.file_from_dir(TEST_DATA_DIR)

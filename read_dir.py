@@ -25,7 +25,7 @@ def file_from_dir(target_dir):
 
     return file_list
 
-def read_file(file_arr, max_num_sig=0):
+def read_file(file_arr, max_num_sig=0, start_idx=0):
     """
     @param
         file_arr: list of target file names
@@ -38,7 +38,11 @@ def read_file(file_arr, max_num_sig=0):
         tmp = []
         with open(file, "r") as csvfile:
             reader = csv.reader(csvfile, delimiter=",")
+            idx = 0
             for s in reader:
+                if idx < start_idx:
+                    idx += 1
+                    continue
                 try:
                     s.remove('')
                 except Exception as ex:

@@ -1,16 +1,18 @@
 """
 module for reading data in target dir
 """
-import matplotlib.pyplot as plt
 import os
 import sys
-import csv
+import matplotlib.pyplot as plt
 
-from rule_based import Signal
+from tqdm import tqdm
+
+import rule_based as rb
 
 
-def file_from_dir(target_dir):
+def files_from_dir(target_dir):
     """
+    Get files from target directory.
     @param
         target_dir: target directory name(path)
     @return
@@ -25,45 +27,69 @@ def file_from_dir(target_dir):
 
     return file_list
 
-def read_file(file_arr, max_num_sig=0, start_idx=0):
+
+def read_file(file, max_num_sig=1000, start_idx=0):
     """
+    Read file and return written signals
+    @param
+        file: target file name
+        max_num_sig: maixmum number of signals to get
+        start_idx: start index of signal to get
+    @return
+        Signals: array to save signals
+    """
+    with open(file, "r") as file_reader:
+        signals = []
+        try:
+            for _ in range(start_idx):
+                file_reader.readline()
+            for _ in tqdm(range(max_num_sig), desc=file, ncols=80):
+                line = file_reader.readline()
+                values = line.split(',')
+                values.remove('\n')  # Remove newline chararcter at last
+                signals.append(rb.Signal(file, values, len(signals) + 1))
+        except Exception as ex:
+            print(ex)
+
+    return signals
+
+
+def read_files(file_arr, max_num_sig=1000, start_idx=0):
+    """
+    Read files and return written signals
     @param
         file_arr: list of target file names
+        max_num_sig: maixmum number of signals to get
+        start_idx: start index of signal to get
     @return
         Signals: dictionary to save signals
             >> key: file name, value: Signal
     """
     signals = {}
     for file in file_arr:
-        tmp = []
-        with open(file, "r") as csvfile:
-            reader = csv.reader(csvfile, delimiter=",")
-            idx = 0
-            for s in reader:
-                if idx < start_idx:
-                    idx += 1
-                    continue
-                try:
-                    s.remove('')
-                except Exception as ex:
-                    print(ex)
-                tmp.append(Signal(file, s, len(tmp) + 1))
-                if max_num_sig == len(tmp):
-                    break
-        if len(tmp) == 0:
+        tmp = read_file(file, max_num_sig, start_idx)
+        if not tmp:
             continue
         signals[file] = tmp
-        print(file, " read complete", len(signals[file]))
 
     return signals
 
+
 if __name__ == "__main__":
 
-    DATA_DIR = sys.argv[1]
-    files = file_from_dir(DATA_DIR)
-    data_set = read_file(files)
+    OPTION = sys.argv[1]
+    TARGET = sys.argv[2]
+    MAX_NUM_SIG = int(sys.argv[3])
 
-    for key in data_set:
-        for signal in data_set[key]:
-            plt.plot(signal.values)
+    if OPTION == 'r':
+        FILES = files_from_dir(TARGET)
+        DATA_SET = read_files(FILES, MAX_NUM_SIG)
+    elif OPTION == 'f':
+        DATA_SET = {}
+        DATA_SET[TARGET] = read_file(TARGET, MAX_NUM_SIG)
+
+    for key in DATA_SET:
+        for i in range(len(DATA_SET[key])):
+            print("(" + key + ", " + str(i) + ")")
+            plt.plot(DATA_SET[key][i].values)
             plt.show()

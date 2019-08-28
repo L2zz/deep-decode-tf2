@@ -3,10 +3,10 @@ module for decoding with autoencoder
 TODO:
     - Save model(check point)
 """
+import sys
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
-import sys
 
 from tensorflow.keras import Model, layers, callbacks, regularizers
 from sklearn.model_selection import KFold
@@ -23,6 +23,10 @@ OUTPUT = INPUT
 
 
 class AE(Model):
+    """
+    Class for defining autoencoder
+    """
+
     def __init__(self):
         super(AE, self).__init__()
 
@@ -32,24 +36,30 @@ class AE(Model):
         self.hidden1 = layers.Dense(
             HIDDEN1, activation="elu", kernel_regularizer=regularizer)
         self.output_layer = layers.Dense(OUTPUT)
-        self.dp = layers.Dropout(DROPOUT_PROB)
+        self.drop_out = layers.Dropout(DROPOUT_PROB)
 
         optimizer = tf.optimizers.Adam(LEARNING_RATE)
 
-        self.ae = self.build_model()
-        self.ae.compile(loss="mse", optimizer=optimizer)
-        self.ae.summary()
+        self.autoencoder = self.build_model()
+        self.autoencoder.compile(loss="mse", optimizer=optimizer)
+        self.autoencoder.summary()
 
     def build_model(self):
-
-        h1 = self.hidden1(self.input_layer)
-        d1 = self.dp(h1)
-        output_layer = self.output_layer(d1)
+        """
+        Connect layers and build model
+        """
+        hidden1 = self.hidden1(self.input_layer)
+        drop_out1 = self.drop_out(hidden1)
+        output_layer = self.output_layer(drop_out1)
 
         return Model(self.input_layer, output_layer)
 
     def train_model(self, train):
-
+        """
+        Method for model trainig
+        @param
+            train: train data set
+        """
         early_stopping = callbacks.EarlyStopping(monitor='val_loss', min_delta=0,
                                                  patience=PATIENCE, verbose=1, mode='auto')
         sig_arr = []
@@ -57,15 +67,19 @@ class AE(Model):
         rev_arr = []
         for i in tqdm(range(len(train)), desc="Prepare Train", ncols=80):
             sig_arr.append(train[i].values)
-            epc_arr.append(train[i].epc)
-            _, reverse = rb.detect_preamble(train[i].values)
+            epc_arr.append(train[i].answer)
+            _, reverse = rb.Signal.detect_preamble(train[i].values)
             rev_arr.append(reverse)
-        history = self.ae.fit(np.array(sig_arr), rb.gen_signal(epc_arr, rev_arr), verbose=1,
-                              batch_size=BATCH_SIZE, epochs=EPOCHS, validation_split=VALID_SPLIT,
-                              callbacks=[early_stopping])
+        self.autoencoder.fit(np.array(sig_arr), rb.Signal.gen_signal(epc_arr, rev_arr), verbose=1,
+                             batch_size=BATCH_SIZE, epochs=EPOCHS, validation_split=VALID_SPLIT,
+                             callbacks=[early_stopping])
 
     def test_model(self, test):
-
+        """
+        Method for model test
+        @param
+            test: test data set
+        """
         results = {}
         sig_arr = {}
         epc_arr = {}
@@ -75,11 +89,11 @@ class AE(Model):
             epc_arr[fn] = []
             for signal in test[fn]:
                 sig_arr[fn].append(signal.values)
-                epc_arr[fn].append(signal.epc)
-            pred = self.ae.predict(np.array(sig_arr[fn]))
+                epc_arr[fn].append(signal.answer)
+            pred = self.autoencoder.predict(np.array(sig_arr[fn]))
             for i in tqdm(range(len(pred)), desc=fn, ncols=80):
-                pre_idx, reverse = rb.detect_preamble(pred[i])
-                decoded = rb.detect_data(pred[i][pre_idx:], reverse)
+                pre_idx, reverse = rb.Signal.detect_preamble(pred[i])
+                decoded = rb.Signal.detect_data(pred[i][pre_idx:], reverse)
                 if decoded == epc_arr[fn][i]:
                     results[fn][0] += 1
                 else:
@@ -111,8 +125,8 @@ if __name__ == "__main__":
     DATA_DIR = sys.argv[1]
     MAX_NUM_SIG = int(sys.argv[2])
 
-    files = rd.file_from_dir(DATA_DIR)
-    data_set = rd.read_file(files, MAX_NUM_SIG)
+    files = rd.files_from_dir(DATA_DIR)
+    data_set = rd.read_files(files, MAX_NUM_SIG)
 
     # Make train/test data set
     train_data = [[] for i in range(NUM_FOLD)]

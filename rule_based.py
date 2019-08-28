@@ -262,18 +262,18 @@ if __name__ == "__main__":
 
     DATA_DIR = sys.argv[1]
     MAX_NUM_SIG = int(sys.argv[2])
-    FILES = rd.files_from_dir(DATA_DIR)
-    DATA_SET = rd.read_files(FILES, MAX_NUM_SIG)
+    files = rd.files_from_dir(DATA_DIR)
+    data_set = rd.read_files(files, MAX_NUM_SIG)
 
-    for fn in DATA_SET:
+    for fn in data_set:
         suc = 0
         fail = 0
-        for i in tqdm(range(len(DATA_SET[fn])), desc=fn, ncols=80):
+        for i in tqdm(range(len(data_set[fn])), desc=fn, ncols=80):
             pre_idx, reverse = Signal.detect_preamble(
-                DATA_SET[fn][i].values)
+                data_set[fn][i].values)
             decoded = Signal.detect_data(
-                DATA_SET[fn][i].values[pre_idx:], reverse)
-            if decoded == DATA_SET[fn][i].answer:
+                data_set[fn][i].values[pre_idx:], reverse)
+            if decoded == data_set[fn][i].answer:
                 suc += 1
             else:
                 fail += 1

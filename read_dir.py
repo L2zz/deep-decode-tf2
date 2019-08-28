@@ -6,7 +6,7 @@ import os
 import sys
 import csv
 
-from signal_prep import Signal
+from rule_based import Signal
 
 
 def file_from_dir(target_dir):

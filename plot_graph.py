@@ -4,6 +4,7 @@ import numpy as np
 import sys
 
 if __name__ == "__main__":
+    
     FILE_NAME = [sys.argv[1]]
     MAX_NUM_SIG = int(sys.argv[2])
     START = int(sys.argv[3])

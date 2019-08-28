@@ -7,8 +7,53 @@ import sys
 from tqdm import tqdm
 
 import read_dir as rd
-from signal_prep import Signal
 
+
+# Global variables for determining start/end point of singal
+START = 100 + 1
+END = -400
+INPUT = 7300 - (START-1) + END
+
+NUM_BIT = 128
+LEN_BIT = 50
+LEN_HALF_BIT = LEN_BIT // 2
+NUM_PREAMBLE = 6
+LEN_PREAMBLE = LEN_BIT * NUM_PREAMBLE
+
+
+class Signal:
+    values = []  # sample values
+    fn = ""  # from filename
+    epc = []  # epc data
+    data_idx = 0
+
+    def __init__(self, fn, in_data, idx):
+        self.values = [float(s) for s in in_data[START:END]]
+        self.values = ceiling(self.values, np.percentile(self.values, 2.5),
+                              np.percentile(self.values, 97.5))
+        self.values = MinMaxScaler(self.values)
+        self.values = self.values - np.mean(self.values)
+
+        self.fn = fn
+        self.epc = [int(bit) for bit in list(in_data[0])]
+        self.data_idx = idx
+
+
+def MinMaxScaler(data):
+    numerator = data - np.min(data, 0)
+    denominator = np.max(data, 0) - np.min(data, 0)
+    # noise term prevents the zero division
+    return numerator / (denominator + 1e-7)
+
+
+def ceiling(data, min, max):
+    for i in range(len(data)):
+        if data[i] > max:
+            data[i] = max
+        elif data[i] < min:
+            data[i] = min
+
+    return data
 
 def detect_preamble(in_data):
     # preamble mask
@@ -111,13 +156,74 @@ def detect_data(in_data, reverse):
     return ret
 
 
-if __name__ == "__main__":
+def gen_signal(epc_arr, reverse_arr):
 
-    NUM_BIT = 128
-    LEN_BIT = 50
-    LEN_HALF_BIT = LEN_BIT // 2
-    NUM_PREAMBLE = 6
-    LEN_PREAMBLE = LEN_BIT * NUM_PREAMBLE
+    outs = []
+
+    # Bit mask
+    type0a = [0.5] * LEN_HALF_BIT + [-0.5] * LEN_HALF_BIT
+    type0b = [-0.5] * LEN_HALF_BIT + [0.5] * LEN_HALF_BIT
+    type1a = [-0.5] * LEN_BIT
+    type1b = [0.5] * LEN_BIT
+
+    # Preamble bit
+    preamble = [.5] * LEN_BIT  # 1
+    preamble += [-0.5] * LEN_HALF_BIT  # 2
+    preamble += [.5] * LEN_HALF_BIT
+    preamble += [-0.5] * LEN_BIT  # 3
+    preamble += [.5] * LEN_HALF_BIT  # 4
+    preamble += [-0.5] * LEN_HALF_BIT
+    preamble += [-0.5] * LEN_BIT  # 5
+    preamble += [.5] * LEN_BIT  # 6
+
+    padding = (INPUT - (NUM_BIT + NUM_PREAMBLE) * LEN_BIT) // 2
+
+    for i in range(len(epc_arr)):
+        out = []
+        if reverse_arr[i]:
+            state = type1a
+            out += [0.5] * padding
+            out += [-i for i in preamble]
+        else:
+            state = type1b
+            out += [-0.5] * padding
+            out += preamble
+
+        for nbits in range(NUM_BIT):
+             # FM0 state transition
+            if state == type1b or state == type0b:
+                if epc_arr[i][nbits] == 0:
+                    state = type0b
+                else:
+                    state = type1a
+            elif state == type0a or state == type1a:
+                if epc_arr[i][nbits] == 0:
+                    state = type0a
+                else:
+                    state = type1b
+            out = out + state
+
+        # dummy bit
+        if reverse_arr[i]:
+            if state == type0b or state == type1b:
+                out += [-0.5] * LEN_BIT
+                out += [0.5] * (padding - LEN_BIT)
+            else:
+                out += [0.5] * padding
+        else:
+            if state == type0a or state == type1a:
+                out += [0.5] * LEN_BIT
+                out += [-0.5] * (padding - LEN_BIT)
+            else:
+                out += [-0.5] * padding
+        outs.append(np.array(out))
+
+    outs = np.array(outs)
+
+    return outs
+
+
+if __name__ == "__main__":
 
     DATA_DIR = sys.argv[1]
     MAX_NUM_SIG = int(sys.argv[2])

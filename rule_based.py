@@ -3,6 +3,7 @@ module for rule based decoding
 """
 import sys
 import numpy as np
+import matplotlib.pyplot as plt
 
 from tqdm import tqdm
 
@@ -195,12 +196,12 @@ class Signal:
 
             for nbits in range(NUM_BIT):
                  # FM0 state transition
-                if state in (type1b, type0b):
+                if state in (type0b, type1b):
                     if ans[nbits] == 0:
                         state = type0b
                     else:
                         state = type1a
-                elif state in (type1a, type1b):
+                elif state in (type0a, type1a):
                     if ans[nbits] == 0:
                         state = type0a
                     else:

@@ -9,7 +9,7 @@ import tensorflow as tf
 import numpy as np
 
 from tensorflow.keras import Model, layers, callbacks, regularizers
-from sklearn.model_selection import KFold
+from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 import read_dir as rd
@@ -60,8 +60,8 @@ class AE(Model):
         @param
             train: train data set
         """
-        early_stopping = callbacks.EarlyStopping(monitor='val_loss', min_delta=0,
-                                                 patience=PATIENCE, verbose=1, mode='auto')
+        # early_stopping = callbacks.EarlyStopping(monitor='val_loss', min_delta=0,
+        #                                          patience=PATIENCE, verbose=1, mode='auto')
         sig_arr = []
         epc_arr = []
         rev_arr = []
@@ -71,8 +71,8 @@ class AE(Model):
             _, reverse = rb.Signal.detect_preamble(train[i].values)
             rev_arr.append(reverse)
         self.autoencoder.fit(np.array(sig_arr), rb.Signal.gen_signal(epc_arr, rev_arr), verbose=1,
-                             batch_size=BATCH_SIZE, epochs=EPOCHS, validation_split=VALID_SPLIT,
-                             callbacks=[early_stopping])
+                             batch_size=BATCH_SIZE, epochs=EPOCHS, validation_split=VALID_SPLIT)
+                             # , callbacks=[early_stopping])
 
     def test_model(self, test):
         """
@@ -99,7 +99,7 @@ class AE(Model):
                 else:
                     results[fn][1] += 1
 
-            print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+            print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%\n".format(
                 fn, results[fn][0], results[fn][1],
                 float(results[fn][0]) * 100 / (results[fn][0] + results[fn][1])))
 
@@ -115,46 +115,51 @@ if __name__ == "__main__":
     LEN_PREAMBLE = LEN_BIT * NUM_PREAMBLE
 
     LEARNING_RATE = 0.0005
-    NUM_FOLD = 5
     EPOCHS = 100
     PATIENCE = 5
     DROPOUT_PROB = 0.
     VALID_SPLIT = 0.2
+    TEST_SPLIT = 0.2
     BATCH_SIZE = 100
+    FILE_BATCH_SIZE = 10
 
     DATA_DIR = sys.argv[1]
     MAX_NUM_SIG = int(sys.argv[2])
 
     files = rd.files_from_dir(DATA_DIR)
-    data_set = rd.read_files(files, MAX_NUM_SIG)
-
-    # Make train/test data set
-    train_data = [[] for i in range(NUM_FOLD)]
-    test_data = [{} for i in range(NUM_FOLD)]
-
-    kf = KFold(n_splits=NUM_FOLD, shuffle=True)
-    for fn in sorted(data_set):
-        for i in range(NUM_FOLD):
-            test_data[i][fn] = []
-        fold = 0
-        for train_idx, test_idx in kf.split(data_set[fn]):
-            train_data[fold] += [data_set[fn][i] for i in train_idx]
-            test_data[fold][fn] += [data_set[fn][i] for i in test_idx]
-            fold += 1
+    file_batches = []
+    for file_batch_idx in range(0, int(len(files) / FILE_BATCH_SIZE) + 1):
+        file_batches.append([])
+        file_batch_start = file_batch_idx * FILE_BATCH_SIZE
+        file_batch_end = file_batch_idx * FILE_BATCH_SIZE + FILE_BATCH_SIZE
+        file_batches[file_batch_idx] = files[file_batch_start:file_batch_end]
+        if not file_batches[file_batch_idx]:
+            file_batches.pop()
 
     model = AE()
 
-    for fold in range(NUM_FOLD):
-        print("\n[{}] Train Start!".format(fold + 1))
-        model.train_model(train_data[fold])
-        print("\n[{}] Test Start!".format(fold + 1))
-        results = model.test_model(test_data[fold])
+    test_data = {}
+    for file_batch_idx, file_batch in enumerate(file_batches):
+        print("\n<<[{}] Train Start! >>".format(file_batch_idx+1))
+        data_set = rd.read_files(file_batch, MAX_NUM_SIG)
+        train_data = []
+        for fn in sorted(data_set):
+            test_data[fn] = []
+            tmp_train, tmp_test = train_test_split(
+                data_set[fn], test_size=TEST_SPLIT, random_state=0)
+            train_data += tmp_train
+            test_data[fn] += tmp_test
 
-        suc = 0
-        fail = 0
-        for fn in results:
-            suc += results[fn][0]
-            fail += results[fn][1]
-        print("\n[TOTAL] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
-            suc, fail, float(suc * 100 / (suc + fail))))
-        print()
+        model.train_model(train_data)
+
+    print("\n<< Test Start! >>")
+    results = model.test_model(test_data)
+
+    suc = 0
+    fail = 0
+    for fn in results:
+        suc += results[fn][0]
+        fail += results[fn][1]
+    print("\n[TOTAL] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+        suc, fail, float(suc * 100 / (suc + fail))))
+    print()

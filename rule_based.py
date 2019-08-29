@@ -38,8 +38,7 @@ class Signal:
 
     def __init__(self, file_name, in_data, idx):
         self.values = [float(s) for s in in_data[START:END]]
-        self.values = ceiling(self.values, np.percentile(self.values, 2.5),
-                              np.percentile(self.values, 97.5))
+        self.values = z_scores(self.values)
         self.values = min_max_scaler(self.values)
         self.values = self.values - np.mean(self.values)
 
@@ -241,6 +240,46 @@ def ceiling(data, min_val, max_val):
             data[idx] = max_val
         elif val < min_val:
             data[idx] = min_val
+
+    return data
+
+def tukey_fences(data):
+    """
+    Outlier detection using tukey fences
+    @param
+        data: target array of values to ceiling
+    @return
+        data: process data
+    """
+    q1, q3 = np.percentile(data, [25, 75])
+    iqr = q3 - q1
+    upper_bound = q3 + (iqr*1.5)
+    lower_bound = q1 - (iqr*1.5)
+    for idx, val in enumerate(data):
+        if val > upper_bound:
+            data[idx] = upper_bound
+        elif val < lower_bound:
+            data[idx] = lower_bound
+
+    return data
+
+def z_scores(data):
+    """
+    Outlier detection using tukey z scores
+    @param
+        data: target array of values to ceiling
+    @return
+        data: process data
+    """
+    threshold = 3
+    mean = np.mean(data)
+    std = np.std(data)
+    z_scores = [(i-mean)/std for i in data]
+    for z_idx, z_score in enumerate(z_scores):
+        if z_score > threshold:
+            data[z_idx] = mean + threshold*std
+        elif z_score < -threshold:
+            data[z_idx] = mean - threshold*std
 
     return data
 

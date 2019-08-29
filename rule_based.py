@@ -243,6 +243,7 @@ def ceiling(data, min_val, max_val):
 
     return data
 
+
 def tukey_fences(data):
     """
     Outlier detection using tukey fences
@@ -253,8 +254,8 @@ def tukey_fences(data):
     """
     q1, q3 = np.percentile(data, [25, 75])
     iqr = q3 - q1
-    upper_bound = q3 + (iqr*1.5)
-    lower_bound = q1 - (iqr*1.5)
+    upper_bound = q3 + (iqr * 1.5)
+    lower_bound = q1 - (iqr * 1.5)
     for idx, val in enumerate(data):
         if val > upper_bound:
             data[idx] = upper_bound
@@ -263,9 +264,10 @@ def tukey_fences(data):
 
     return data
 
+
 def z_scores(data):
     """
-    Outlier detection using tukey z scores
+    Outlier detection using z scores (threshold default: 3)
     @param
         data: target array of values to ceiling
     @return
@@ -274,12 +276,33 @@ def z_scores(data):
     threshold = 3
     mean = np.mean(data)
     std = np.std(data)
-    z_scores = [(i-mean)/std for i in data]
+    z_scores = [(i - mean) / std for i in data]
     for z_idx, z_score in enumerate(z_scores):
         if z_score > threshold:
-            data[z_idx] = mean + threshold*std
+            data[z_idx] = mean + threshold * std
         elif z_score < -threshold:
-            data[z_idx] = mean - threshold*std
+            data[z_idx] = mean - threshold * std
+
+    return data
+
+
+def modified_z_scores(data):
+    """
+    Outlier detection using modified z scores (threshold default: 3.5)
+    @param
+        data: target array of values to ceiling
+    @return
+        data: process data
+    """
+    threshold = 3.5
+    median = np.median(data)
+    med_abs_dev = np.median([np.abs(sample - median) for sample in data])
+    mz_scores = [0.6745 * (sample - median) / med_abs_dev for sample in data]
+    for mz_idx, mz_score in enumerate(mz_scores):
+        if mz_score > threshold:
+            data[mz_idx] = median + threshold * med_abs_dev / 0.6745
+        elif mz_score < -threshold:
+            data[mz_idx] = median - threshold * med_abs_dev / 0.6745
 
     return data
 

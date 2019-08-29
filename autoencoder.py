@@ -60,8 +60,8 @@ class AE(Model):
         @param
             train: train data set
         """
-        # early_stopping = callbacks.EarlyStopping(monitor='val_loss', min_delta=0,
-        #                                          patience=PATIENCE, verbose=1, mode='auto')
+        early_stopping = callbacks.EarlyStopping(monitor='val_loss', min_delta=0,
+                                                 patience=PATIENCE, verbose=1, mode='auto')
         sig_arr = []
         epc_arr = []
         rev_arr = []
@@ -71,8 +71,8 @@ class AE(Model):
             _, reverse = rb.Signal.detect_preamble(train[i].values)
             rev_arr.append(reverse)
         self.autoencoder.fit(np.array(sig_arr), rb.Signal.gen_signal(epc_arr, rev_arr), verbose=1,
-                             batch_size=BATCH_SIZE, epochs=EPOCHS, validation_split=VALID_SPLIT)
-                             # , callbacks=[early_stopping])
+                             batch_size=BATCH_SIZE, epochs=EPOCHS, validation_split=VALID_SPLIT,
+                             callbacks=[early_stopping])
 
     def test_model(self, test):
         """
@@ -121,34 +121,33 @@ if __name__ == "__main__":
     VALID_SPLIT = 0.2
     TEST_SPLIT = 0.2
     BATCH_SIZE = 100
-    FILE_BATCH_SIZE = 10
+    TRAIN_SET_SIZE = BATCH_SIZE
 
     DATA_DIR = sys.argv[1]
     MAX_NUM_SIG = int(sys.argv[2])
 
     files = rd.files_from_dir(DATA_DIR)
-    file_batches = []
-    for file_batch_idx in range(0, int(len(files) / FILE_BATCH_SIZE) + 1):
-        file_batches.append([])
-        file_batch_start = file_batch_idx * FILE_BATCH_SIZE
-        file_batch_end = file_batch_idx * FILE_BATCH_SIZE + FILE_BATCH_SIZE
-        file_batches[file_batch_idx] = files[file_batch_start:file_batch_end]
-        if not file_batches[file_batch_idx]:
-            file_batches.pop()
 
     model = AE()
 
+    data_gen = rd.read_files_gen(files, MAX_NUM_SIG, TRAIN_SET_SIZE)
+    num_train_set = MAX_NUM_SIG // TRAIN_SET_SIZE
+
     test_data = {}
-    for file_batch_idx, file_batch in enumerate(file_batches):
-        print("\n<<[{}] Train Start! >>".format(file_batch_idx+1))
-        data_set = rd.read_files(file_batch, MAX_NUM_SIG)
+    for train_idx in range(num_train_set):
+        print("\n<<[{}/{}] Train Start! >>".format(train_idx+1, num_train_set))
+        data_set = next(data_gen)
         train_data = []
         for fn in sorted(data_set):
-            test_data[fn] = []
             tmp_train, tmp_test = train_test_split(
                 data_set[fn], test_size=TEST_SPLIT, random_state=0)
             train_data += tmp_train
-            test_data[fn] += tmp_test
+            try:
+                test_data[fn] += tmp_test
+            except Exception as ex:
+                test_data[fn] = []
+                test_data[fn] += tmp_test
+        print()
 
         model.train_model(train_data)
 

@@ -9,7 +9,7 @@ import tensorflow as tf
 import numpy as np
 
 from tensorflow.keras import Model, layers, callbacks, regularizers
-from sklearn.model_selection import KFold
+from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 import read_dir as rd
@@ -96,7 +96,7 @@ class AE(Model):
                 else:
                     results[fn][1] += 1
 
-            print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+            print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%\n".format(
                 fn, results[fn][0], results[fn][1],
                 float(results[fn][0]) * 100 / (results[fn][0] + results[fn][1])))
 
@@ -106,46 +106,50 @@ class AE(Model):
 if __name__ == "__main__":
 
     LEARNING_RATE = 0.0005
-    NUM_FOLD = 5
     EPOCHS = 100
     PATIENCE = 5
     DROPOUT_PROB = 0.
     VALID_SPLIT = 0.2
+    TEST_SPLIT = 0.2
     BATCH_SIZE = 100
+    TRAIN_SET_SIZE = BATCH_SIZE
 
     DATA_DIR = sys.argv[1]
     MAX_NUM_SIG = int(sys.argv[2])
 
     files = rd.files_from_dir(DATA_DIR)
-    data_set = rd.read_files(files, MAX_NUM_SIG)
-
-    # Make train/test data set
-    train_data = [[] for i in range(NUM_FOLD)]
-    test_data = [{} for i in range(NUM_FOLD)]
-
-    kf = KFold(n_splits=NUM_FOLD, shuffle=True)
-    for fn in sorted(data_set):
-        for i in range(NUM_FOLD):
-            test_data[i][fn] = []
-        fold = 0
-        for train_idx, test_idx in kf.split(data_set[fn]):
-            train_data[fold] += [data_set[fn][i] for i in train_idx]
-            test_data[fold][fn] += [data_set[fn][i] for i in test_idx]
-            fold += 1
 
     model = AE()
 
-    for fold in range(NUM_FOLD):
-        print("\n[{}] Train Start!".format(fold + 1))
-        model.train_model(train_data[fold])
-        print("\n[{}] Test Start!".format(fold + 1))
-        results = model.test_model(test_data[fold])
+    data_gen = rd.read_files_gen(files, MAX_NUM_SIG, TRAIN_SET_SIZE)
+    num_train_set = MAX_NUM_SIG // TRAIN_SET_SIZE
 
-        suc = 0
-        fail = 0
-        for fn in results:
-            suc += results[fn][0]
-            fail += results[fn][1]
-        print("\n[TOTAL] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
-            suc, fail, float(suc * 100 / (suc + fail))))
+    test_data = {}
+    for train_idx in range(num_train_set):
+        print("\n<<[{}/{}] Train Start! >>".format(train_idx+1, num_train_set))
+        data_set = next(data_gen)
+        train_data = []
+        for fn in sorted(data_set):
+            tmp_train, tmp_test = train_test_split(
+                data_set[fn], test_size=TEST_SPLIT, random_state=0)
+            train_data += tmp_train
+            try:
+                test_data[fn] += tmp_test
+            except Exception as ex:
+                test_data[fn] = []
+                test_data[fn] += tmp_test
         print()
+
+        model.train_model(train_data)
+
+    print("\n<< Test Start! >>")
+    results = model.test_model(test_data)
+
+    suc = 0
+    fail = 0
+    for fn in results:
+        suc += results[fn][0]
+        fail += results[fn][1]
+    print("\n[TOTAL] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+        suc, fail, float(suc * 100 / (suc + fail))))
+    print()

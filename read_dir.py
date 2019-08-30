@@ -74,6 +74,44 @@ def read_files(file_arr, max_num_sig=1000, start_idx=0):
 
     return signals
 
+def read_files_gen(file_arr, max_num_sig=1000, ret_size=-1, start_idx=0):
+    """
+    Build generator for read files and yield written signals with ret_size
+    @param
+        file_arr: list of target file names
+        max_num_sig: maixmum number of signals to get
+        ret_size: number of siganls to get at once
+        start_idx: start index of signal to get
+    @yield
+        Signals: dictionary to save signals
+            >> key: file name, value: Signal
+    """
+    if ret_size == -1:
+        ret_size = max_num_sig
+
+    signals_fn = {}
+    ret_num = max_num_sig // ret_size
+    for ret_idx in range(ret_num):
+        for file in file_arr:
+            with open(file, "r") as file_reader:
+                signals = []
+                try:
+                    if ret_idx == 0:
+                        for _ in range(start_idx):
+                            file_reader.readline()
+                    for _ in tqdm(range(ret_size), desc=file, ncols=80):
+                        line = file_reader.readline()
+                        values = line.split(',')
+                        values.remove('\n')  # Remove newline chararcter at last
+                        signals.append(rb.Signal(file, values, len(signals) + 1))
+                except Exception as ex:
+                    print(ex)
+            if not signals:
+                continue
+            signals_fn[file] = signals
+
+        yield signals_fn
+
 
 if __name__ == "__main__":
 

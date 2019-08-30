@@ -287,7 +287,7 @@ def z_scores(data):
     @return
         data: process data
     """
-    threshold = 3
+    threshold = 2.5
     mean = np.mean(data)
     std = np.std(data)
     z_scores = [(i - mean) / std for i in data]

@@ -9,7 +9,7 @@ import tensorflow as tf
 import numpy as np
 
 from tensorflow.keras import Model, layers, callbacks, regularizers
-from sklearn.model_selection import KFold
+from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 import read_dir as rd
@@ -96,7 +96,7 @@ class AE(Model):
                 else:
                     results[fn][1] += 1
 
-            print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+            print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%\n".format(
                 fn, results[fn][0], results[fn][1],
                 float(results[fn][0]) * 100 / (results[fn][0] + results[fn][1])))
 
@@ -105,56 +105,62 @@ class AE(Model):
 
 if __name__ == "__main__":
 
+    NUM_BIT = 128
+    LEN_BIT = 50
+    LEN_HALF_BIT = LEN_BIT // 2
+    NUM_PREAMBLE = 6
+    LEN_PREAMBLE = LEN_BIT * NUM_PREAMBLE
+
     LEARNING_RATE = 0.0001
-    NUM_FOLD = 5
-    EPOCHS = 300
+    EPOCHS = 100
     PATIENCE = 5
     DROPOUT_PROB = 0.
     VALID_SPLIT = 0.2
+    TEST_SPLIT = 0.2
     BATCH_SIZE = 100
+    TRAIN_SET_SIZE = BATCH_SIZE
 
     TRAIN_DATA_DIR = "data_good"
     TEST_DATA_DIR = "data"
-    MAX_NUM_SIG = 100
-
-    train_files = rd.files_from_dir(TRAIN_DATA_DIR)
-    test_files = rd.files_from_dir(TEST_DATA_DIR)
-    train_data_set = rd.read_files(train_files, MAX_NUM_SIG)
-    test_data_set = rd.read_files(test_files, MAX_NUM_SIG, MAX_NUM_SIG)
-
-    # Make train/test data set
-    train_data = [[] for i in range(NUM_FOLD)]
-    test_data = [{} for i in range(NUM_FOLD)]
-
-    kf = KFold(n_splits=NUM_FOLD, shuffle=True)
-    for fn in sorted(train_data_set):
-        fold = 0
-        for train_idx, test_idx in kf.split(train_data_set[fn]):
-            train_data[fold] += [train_data_set[fn][i] for i in train_idx]
-            train_data[fold] += [train_data_set[fn][i] for i in test_idx]
-            fold += 1
-
-    for fn in sorted(test_data_set):
-        for i in range(NUM_FOLD):
-            test_data[i][fn] = []
-        fold = 0
-        for train_idx, test_idx in kf.split(test_data_set[fn]):
-            test_data[fold][fn] += [test_data_set[fn][i] for i in test_idx]
-            fold += 1
+    MAX_NUM_SIG = 500
 
     model = AE()
 
-    for fold in range(NUM_FOLD):
-        print("\n[{}] Train Start!".format(fold + 1))
-        model.train_model(train_data[fold])
-        print("\n[{}] Test Start!".format(fold + 1))
-        results = model.test_model(test_data[fold])
+    train_files = rd.files_from_dir(TRAIN_DATA_DIR)
+    test_files = rd.files_from_dir(TEST_DATA_DIR)
+    train_gen = rd.read_files_gen(train_files, MAX_NUM_SIG, TRAIN_SET_SIZE)
+    test_gen = rd.read_files_gen(test_files, int(MAX_NUM_SIG * TEST_SPLIT),
+                                 int(TRAIN_SET_SIZE * TEST_SPLIT), MAX_NUM_SIG)
+    num_train_set = MAX_NUM_SIG // TRAIN_SET_SIZE
 
-        suc = 0
-        fail = 0
-        for fn in results:
-            suc += results[fn][0]
-            fail += results[fn][1]
-        print("\n[TOTAL] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
-            suc, fail, float(suc * 100 / (suc + fail))))
+    test_data = {}
+    for train_idx in range(num_train_set):
+        print("\n<<[{}/{}] Train Start! >>".format(train_idx + 1, num_train_set))
+
+        train_set = next(train_gen)
+        train_data = []
+        for fn in sorted(train_set):
+            train_data += train_set[fn]
+
+        test_set = next(test_gen)
+        for fn in sorted(test_set):
+            try:
+                test_data[fn] += test_set[fn]
+            except Exception as ex:
+                test_data[fn] = []
+                test_data[fn] += test_set[fn]
         print()
+
+        model.train_model(train_data)
+
+    print("\n<< Test Start! >>")
+    results = model.test_model(test_data)
+
+    suc = 0
+    fail = 0
+    for fn in results:
+        suc += results[fn][0]
+        fail += results[fn][1]
+    print("\n[TOTAL] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+        suc, fail, float(suc * 100 / (suc + fail))))
+    print()

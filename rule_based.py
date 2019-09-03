@@ -313,6 +313,7 @@ if __name__ == "__main__":
     MAX_NUM_SIG = int(sys.argv[2])
     files = rd.files_from_dir(DATA_DIR)
     data_set = rd.read_files(files, MAX_NUM_SIG)
+    print()
 
     for fn in data_set:
         suc = 0
@@ -325,5 +326,5 @@ if __name__ == "__main__":
             else:
                 fail += 1
 
-        print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%".format(
+        print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%\n".format(
             fn, suc, fail, float(suc * 100 / (suc + fail))))

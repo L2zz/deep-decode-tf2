@@ -48,9 +48,10 @@ class AE(Model):
         """
         Connect layers and build model
         """
-        hidden1 = self.hidden1(self.input_layer)
-        drop_out1 = self.drop_out(hidden1)
-        output_layer = self.output_layer(drop_out1)
+        drop_out1 = self.drop_out(self.input_layer)
+        hidden1 = self.hidden1(drop_out1)
+        drop_out2 = self.drop_out(hidden1)
+        output_layer = self.output_layer(drop_out2)
 
         return Model(self.input_layer, output_layer)
 

@@ -40,14 +40,17 @@ def read_file(file, max_num_sig=1000, start_idx=0):
     """
     with open(file, "r") as file_reader:
         signals = []
+        ln = 0
         try:
             for _ in range(start_idx):
                 file_reader.readline()
+                ln += 1
             for _ in tqdm(range(max_num_sig), desc=file, ncols=80):
                 line = file_reader.readline()
+                ln += 1
                 values = line.split(',')
                 values.remove('\n')  # Remove newline chararcter at last
-                signals.append(rb.Signal(file, values, len(signals) + 1))
+                signals.append(rb.Signal(file, values, ln))
         except Exception as ex:
             print(ex)
 
@@ -95,15 +98,17 @@ def read_files_gen(file_arr, max_num_sig=1000, ret_size=-1, start_idx=0):
         for file in file_arr:
             with open(file, "r") as file_reader:
                 signals = []
+                ln = 0
                 try:
-                    if ret_idx == 0:
-                        for _ in range(start_idx):
-                            file_reader.readline()
+                    for _ in range(start_idx+ret_idx*ret_size):
+                        file_reader.readline()
+                        ln += 1
                     for _ in tqdm(range(ret_size), desc=file, ncols=80):
                         line = file_reader.readline()
+                        ln += 1
                         values = line.split(',')
                         values.remove('\n')  # Remove newline chararcter at last
-                        signals.append(rb.Signal(file, values, len(signals) + 1))
+                        signals.append(rb.Signal(file, values, ln))
                 except Exception as ex:
                     print(ex)
             if not signals:

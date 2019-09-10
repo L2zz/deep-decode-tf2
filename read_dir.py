@@ -106,7 +106,7 @@ def read_files_gen(file_arr, max_num_sig=1000, ret_size=-1, start_idx=0):
                     for _ in range(start_idx + ret_idx * ret_size):
                         file_reader.readline()
                         ln += 1
-                    for _ in tqdm(range(ret_size), desc=file, ncols=80):
+                    for _ in range(ret_size):
                         line = file_reader.readline()
                         ln += 1
                         values = line.split(',')

@@ -53,7 +53,7 @@ def read_file(file, max_num_sig=1000, start_idx=0):
                 values.remove('\n')  # Remove newline chararcter at last
                 signals.append(rb.Signal(file, values, ln))
         except Exception as ex:
-            print(ex)
+            pass
 
     return signals
 
@@ -97,7 +97,8 @@ def read_files_gen(file_arr, max_num_sig=1000, ret_size=-1, start_idx=0):
     signals_fn = {}
     ret_num = max_num_sig // ret_size
     for ret_idx in range(ret_num):
-        for file in file_arr:
+        for file_idx in tqdm(range(len(file_arr)), desc="Batch["+str(ret_idx+1)+"]", ncols=80):
+            file = file_arr[file_idx]
             with open(file, "r") as file_reader:
                 signals = []
                 ln = 0
@@ -105,7 +106,7 @@ def read_files_gen(file_arr, max_num_sig=1000, ret_size=-1, start_idx=0):
                     for _ in range(start_idx + ret_idx * ret_size):
                         file_reader.readline()
                         ln += 1
-                    for _ in tqdm(range(ret_size), desc=file, ncols=80):
+                    for _ in range(ret_size):
                         line = file_reader.readline()
                         ln += 1
                         values = line.split(',')
@@ -113,7 +114,7 @@ def read_files_gen(file_arr, max_num_sig=1000, ret_size=-1, start_idx=0):
                         values.remove('\n')
                         signals.append(rb.Signal(file, values, ln))
                 except Exception as ex:
-                    print(ex)
+                    pass
             if not signals:
                 continue
             signals_fn[file] = signals
@@ -169,7 +170,7 @@ def read_files_rand_gen(file_arr, max_num_sig=1000, ret_size=-1, start_idx=0):
                         if count == ret_size:
                             break
                 except Exception as ex:
-                    print(ex)
+                    pass
             if not signals:
                 continue
             signals_fn[file] = signals

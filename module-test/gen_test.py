@@ -12,6 +12,7 @@ if __name__ == "__main__":
 
     files = rd.files_from_dir(TARGET)
     gen = rd.read_files_gen(files, 100, 10, 1000)
+    # gen = rd.read_files_rand_gen(files, 100, 10, 1000)
 
     data = {}
     for _ in range(10):

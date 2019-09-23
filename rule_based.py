@@ -11,8 +11,8 @@ import read_dir as rd
 
 
 # Global variables for determining start/end point of singal
-START = 100 + 1
-END = -400
+START = 50 + 1
+END = -500
 INPUT = 7300 - (START - 1) + END
 
 # Global variables for signal info

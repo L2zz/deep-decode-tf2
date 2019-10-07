@@ -69,7 +69,7 @@ class Signal:
         max_idx = 0
         reverse = False
         max_score = -987654321
-        exp_range = range(40, 100)
+        exp_range = range(0, 100)
         for exp_idx in exp_range:
             score = 0.0
             for mask_idx, mask_val in enumerate(mask):

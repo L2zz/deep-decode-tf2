@@ -11,8 +11,8 @@ import read_dir as rd
 
 
 # Global variables for determining start/end point of singal
-START = 50 + 1
-END = -500
+START = 70 + 1
+END = -530
 INPUT = 7300 - (START - 1) + END
 
 # Global variables for signal info
@@ -179,12 +179,11 @@ class Signal:
         preamble += [-0.5] * LEN_BIT  # 5
         preamble += [.5] * LEN_BIT  # 6
 
-        padding = (INPUT - (NUM_BIT + NUM_PREAMBLE) * LEN_BIT) // 2
+        padding = (INPUT - (NUM_BIT + NUM_PREAMBLE) * LEN_BIT)
 
         for ans_idx, ans in enumerate(ans_arr):
             out = []
             state = type1b
-            out += [-0.5] * padding
             out += preamble
             for nbits in range(NUM_BIT):
                  # FM0 state transition

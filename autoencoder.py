@@ -65,9 +65,10 @@ class AE(Model):
                                                  patience=PATIENCE, verbose=1, mode='auto')
         sig_arr = []
         epc_arr = []
-        for i in tqdm(range(len(train)), desc="Prepare Train", ncols=80):
-            sig_arr.append(train[i].values)
-            epc_arr.append(train[i].answer)
+        for fn in train:
+            for signal in train[fn]:
+                sig_arr.append(signal.values)
+                epc_arr.append(signal.answer)
         self.autoencoder.fit(np.array(sig_arr), rb.Signal.gen_signal(epc_arr), verbose=1,
                              batch_size=BATCH_SIZE, epochs=EPOCHS, validation_split=VALID_SPLIT,
                              callbacks=[early_stopping])
@@ -113,46 +114,26 @@ if __name__ == "__main__":
     LEN_PREAMBLE = LEN_BIT * NUM_PREAMBLE
 
     LEARNING_RATE = 0.0001
-    EPOCHS = 100
+    EPOCHS = 300
     PATIENCE = 5
     DROPOUT_PROB = 0.
     VALID_SPLIT = 0.2
     TEST_SPLIT = 0.2
     BATCH_SIZE = 100
-    TRAIN_SET_SIZE = BATCH_SIZE
 
     TRAIN_DATA_DIR = "data_good"
     TEST_DATA_DIR = "data"
-    MAX_NUM_SIG = 1000
+    MAX_NUM_SIG = 10
 
     model = AE()
 
     train_files = rd.files_from_dir(TRAIN_DATA_DIR)
     test_files = rd.files_from_dir(TEST_DATA_DIR)
-    train_gen = rd.read_files_gen(train_files, MAX_NUM_SIG, TRAIN_SET_SIZE)
-    test_gen = rd.read_files_gen(test_files, int(MAX_NUM_SIG * TEST_SPLIT),
-                                 int(TRAIN_SET_SIZE * TEST_SPLIT), MAX_NUM_SIG)
-    num_train_set = MAX_NUM_SIG // TRAIN_SET_SIZE
+    train_data = rd.read_files(train_files, MAX_NUM_SIG)
+    test_data = rd.read_files(test_files, int(MAX_NUM_SIG * TEST_SPLIT), MAX_NUM_SIG)
 
-    test_data = {}
-    for train_idx in range(num_train_set):
-        print("\n<<[{}/{}] Train Start! >>".format(train_idx + 1, num_train_set))
-
-        train_set = next(train_gen)
-        train_data = []
-        for fn in sorted(train_set):
-            train_data += train_set[fn]
-
-        test_set = next(test_gen)
-        for fn in sorted(test_set):
-            try:
-                test_data[fn] += test_set[fn]
-            except Exception as ex:
-                test_data[fn] = []
-                test_data[fn] += test_set[fn]
-        print()
-
-        model.train_model(train_data)
+    print("\n<< Train Start! >>")
+    model.train_model(train_data)
 
     print("\n<< Test Start! >>")
     results = model.test_model(test_data)

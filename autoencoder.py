@@ -19,7 +19,7 @@ import rule_based as rb
 # Model Parameters
 INPUT = rb.INPUT
 HIDDEN1 = 268
-OUTPUT = INPUT
+OUTPUT = HIDDEN1
 
 
 class AE(Model):
@@ -69,7 +69,7 @@ class AE(Model):
             for signal in train[fn]:
                 sig_arr.append(signal.values)
                 epc_arr.append(signal.answer)
-        self.autoencoder.fit(np.array(sig_arr), rb.Signal.gen_signal(epc_arr), verbose=1,
+        self.autoencoder.fit(np.array(sig_arr), rb.Signal.gen_halfbit_signal(epc_arr), verbose=1,
                              batch_size=BATCH_SIZE, epochs=EPOCHS, validation_split=VALID_SPLIT,
                              callbacks=[early_stopping])
 
@@ -91,8 +91,7 @@ class AE(Model):
                 epc_arr[fn].append(signal.answer)
             pred = self.autoencoder.predict(np.array(sig_arr[fn]))
             for i in tqdm(range(len(pred)), desc=fn, ncols=80):
-                pre_idx, _ = rb.Signal.detect_preamble(pred[i])
-                decoded = rb.Signal.detect_data(pred[i][pre_idx:])
+                decoded = rb.Signal.detect_halfbit_data(pred[i])
                 if decoded == epc_arr[fn][i]:
                     results[fn][0] += 1
                 else:
@@ -123,7 +122,7 @@ if __name__ == "__main__":
 
     TRAIN_DATA_DIR = "data_good"
     TEST_DATA_DIR = "data"
-    MAX_NUM_SIG = 10
+    MAX_NUM_SIG = 1000
 
     model = AE()
 

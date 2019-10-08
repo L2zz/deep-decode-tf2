@@ -152,6 +152,62 @@ class Signal:
         return decoded
 
     @classmethod
+    def detect_halfbit_data(cls, sig_val):
+        """
+        Decoding signal
+        @param
+            sig_val: valid sample values(preamble + data) of signal,
+            which is sampled one sample per half bit
+            reverse: whether signal is reversed or not
+        @return
+            decoded: result of decoding
+        """
+        start = 11
+        signal = list(sig_val[start:])
+
+        decoded = []
+
+        # FM0 mask
+        mask0a = ((-1, ) * 1 + (1, ) * 1) * 2
+        mask0b = ((1, ) * 1 + (-1, ) * 1) * 2
+        mask1a = (1, ) * 1 + (-1, ) * 1 + \
+            (-1, ) * 1 + (1, ) * 1
+        mask1b = (-1, ) * 1 + (1, ) * 1 + \
+            (1, ) * 1 + (-1, ) * 1
+        data = {mask0a: 0, mask0b: 0, mask1a: 1, mask1b: 1}
+        state = 1
+        cur_index = 0
+        for bit_idx in range(NUM_BIT):
+
+            max_score = -987654321
+
+            if state == 1:
+                scores = {mask0b: 0, mask1a: 0}
+            else:
+                scores = {mask0a: 0, mask1b: 0}
+
+            chunk_start = bit_idx * 2
+            chunk_end = chunk_start + 4
+            chunk = signal[chunk_start:chunk_end]
+
+            for mask in scores:
+                for mask_idx, sample in enumerate(mask):
+                    if mask_idx < len(chunk):
+                        scores[mask] += chunk[mask_idx] * float(sample)
+                if max_score < scores[mask]:
+                    max_mask = mask
+                    max_score = scores[mask]
+
+            # FM0 state transition
+            if state == 1 and data[max_mask] == 1:
+                state = 0
+            elif state == 0 and data[max_mask] == 1:
+                state = 1
+            decoded.append(data[max_mask])
+
+        return decoded
+
+    @classmethod
     def gen_signal(cls, ans_arr):
         """
         Generating theoretical signals using answers
@@ -205,6 +261,61 @@ class Signal:
                 out += [-0.5] * (padding - LEN_BIT)
             else:
                 out += [-0.5] * padding
+            outs.append(np.array(out))
+
+        outs = np.array(outs)
+
+        return outs
+
+    @classmethod
+    def gen_halfbit_signal(cls, ans_arr):
+        """
+        Generating theoretical signals using answers
+        @param
+            ans_arr: array of answers of decoding
+            reverse_arr: array of info whether signal is reversed or not
+        @return
+            outs: array of generated signals
+        """
+        outs = []
+
+        # Bit mask
+        type0a = [0.5] + [-0.5]
+        type0b = [-0.5] + [0.5]
+        type1a = [-0.5] * 2
+        type1b = [0.5] * 2
+
+        # Preamble bit
+        preamble = [.5] * 2
+        preamble += [-0.5] * 1
+        preamble += [.5] * 1
+        preamble += [-0.5] * 2
+        preamble += [.5] * 1
+        preamble += [-0.5] * 1
+        preamble += [-0.5] * 2
+        preamble += [.5] * 2
+
+        for ans_idx, ans in enumerate(ans_arr):
+            out = []
+            state = type1b
+            out += preamble
+            for nbits in range(NUM_BIT):
+                 # FM0 state transition
+                if state in (type0b, type1b):
+                    if ans[nbits] == 0:
+                        state = type0b
+                    else:
+                        state = type1a
+                elif state in (type0a, type1a):
+                    if ans[nbits] == 0:
+                        state = type0a
+                    else:
+                        state = type1b
+                out = out + state
+
+            # dummy bit
+            if state in (type0a, type1a):
+                out += [0.5] * 2
             outs.append(np.array(out))
 
         outs = np.array(outs)

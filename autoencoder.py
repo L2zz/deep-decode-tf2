@@ -18,7 +18,7 @@ import rule_based as rb
 
 # Model Parameters
 INPUT = rb.INPUT
-HIDDEN1 = 256
+HIDDEN1 = 268
 OUTPUT = INPUT
 
 

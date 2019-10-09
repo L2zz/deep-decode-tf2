@@ -1,5 +1,5 @@
 """
-module for decoding with autoencoder
+module for decoding with convencoder
 TODO:
     - Save model(check point)
 """
@@ -18,39 +18,46 @@ import rule_based as rb
 
 # Model Parameters
 INPUT = rb.INPUT
-HIDDEN1 = 268
-OUTPUT = HIDDEN1
+CONV = 2
+KERNEL_SIZE = 3
+POOL_SIZE = 2
+OUTPUT = 268
 
 
-class AE(Model):
+class CE(Model):
     """
-    Class for defining autoencoder
+    Class for defining convolutional encoder
     """
 
     def __init__(self):
-        super(AE, self).__init__()
+        super(CE, self).__init__()
 
         regularizer = regularizers.l2(0.005)
 
-        self.input_layer = layers.Input(shape=(INPUT,))
-        self.hidden1 = layers.Dense(
-            HIDDEN1, activation="elu", kernel_regularizer=regularizer)
+        self.input_layer = layers.Input(shape=(INPUT, 1))
+        self.conv_layer = layers.Conv1D(
+            CONV, kernel_size=KERNEL_SIZE, activation="elu", padding="same")
+        self.pool_layer = layers.MaxPooling1D(POOL_SIZE)
         self.output_layer = layers.Dense(OUTPUT)
+
+        self.flatten = layers.Flatten()
         self.drop_out = layers.Dropout(DROPOUT_PROB)
 
         optimizer = tf.optimizers.Adam(LEARNING_RATE)
 
-        self.autoencoder = self.build_model()
-        self.autoencoder.compile(loss="mse", optimizer=optimizer)
-        self.autoencoder.summary()
+        self.convencoder = self.build_model()
+        self.convencoder.compile(loss="mse", optimizer=optimizer)
+        self.convencoder.summary()
 
     def build_model(self):
         """
         Connect layers and build model
         """
         drop_out1 = self.drop_out(self.input_layer)
-        hidden1 = self.hidden1(drop_out1)
-        drop_out2 = self.drop_out(hidden1)
+        conv = self.conv_layer(drop_out1)
+        pool = self.pool_layer(conv)
+        flatten = self.flatten(pool)
+        drop_out2 = self.drop_out(flatten)
         output_layer = self.output_layer(drop_out2)
 
         return Model(self.input_layer, output_layer)
@@ -69,7 +76,9 @@ class AE(Model):
             for signal in train[fn]:
                 sig_arr.append(signal.values)
                 epc_arr.append(signal.answer)
-        self.autoencoder.fit(np.array(sig_arr), rb.Signal.gen_halfbit_signal(epc_arr), verbose=1,
+        sig_arr = np.array(sig_arr).reshape(len(sig_arr), INPUT, 1)
+        epc_arr = rb.Signal.gen_halfbit_signal(epc_arr).reshape(len(epc_arr), OUTPUT, 1)
+        self.convencoder.fit(sig_arr, epc_arr, verbose=1,
                              batch_size=BATCH_SIZE, epochs=EPOCHS, validation_split=VALID_SPLIT,
                              callbacks=[early_stopping])
 
@@ -89,7 +98,8 @@ class AE(Model):
             for signal in test[fn]:
                 sig_arr[fn].append(signal.values)
                 epc_arr[fn].append(signal.answer)
-            pred = self.autoencoder.predict(np.array(sig_arr[fn]))
+            sig_arr[fn] = np.array(sig_arr[fn]).reshape(len(sig_arr[fn]), INPUT, 1)
+            pred = self.convencoder.predict(sig_arr[fn])
             for i in tqdm(range(len(pred)), desc=fn, ncols=80):
                 decoded = rb.Signal.detect_halfbit_data(pred[i])
                 if decoded == epc_arr[fn][i]:
@@ -124,12 +134,13 @@ if __name__ == "__main__":
     TEST_DATA_DIR = "data"
     MAX_NUM_SIG = 1000
 
-    model = AE()
+    model = CE()
 
     train_files = rd.files_from_dir(TRAIN_DATA_DIR)
     test_files = rd.files_from_dir(TEST_DATA_DIR)
     train_data = rd.read_files(train_files, MAX_NUM_SIG)
-    test_data = rd.read_files(test_files, int(MAX_NUM_SIG * TEST_SPLIT), MAX_NUM_SIG)
+    test_data = rd.read_files(test_files, int(
+        MAX_NUM_SIG * TEST_SPLIT), MAX_NUM_SIG)
 
     print("\n<< Train Start! >>")
     model.train_model(train_data)

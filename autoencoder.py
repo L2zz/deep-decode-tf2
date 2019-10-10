@@ -20,7 +20,7 @@ import rule_based as rb
 INPUT = rb.INPUT
 CONV1 = 16
 CONV2 = 64
-KERNEL_SIZE = 5
+KERNEL_SIZE = 3
 POOL_SIZE = 2
 OUTPUT = 268
 
@@ -38,8 +38,15 @@ class CE(Model):
         self.input_layer = layers.Input(shape=(INPUT, 1))
         self.conv_layer1 = layers.Conv1D(
             CONV1, kernel_size=KERNEL_SIZE, activation="elu", padding="same")
+        self.conv_layer1_1 = layers.Conv1D(
+            CONV1, kernel_size=KERNEL_SIZE, activation="elu",
+            padding="same", input_shape = (None, CONV1))
         self.conv_layer2 = layers.Conv1D(
             CONV2, kernel_size=KERNEL_SIZE, activation="elu", padding="same")
+        self.conv_layer2_1 = layers.Conv1D(
+            CONV2, kernel_size=KERNEL_SIZE, activation="elu",
+            padding="same", input_shape = (None, CONV2))
+
         self.pool_layer = layers.MaxPooling1D(POOL_SIZE)
         self.output_layer = layers.Dense(OUTPUT)
 
@@ -56,15 +63,20 @@ class CE(Model):
         """
         Connect layers and build model
         """
-        drop_out1 = self.drop_out(self.input_layer)
-        conv1 = self.conv_layer1(drop_out1)
-        pool1 = self.pool_layer(conv1)
-        drop_out2 = self.drop_out(pool1)
-        conv2 = self.conv_layer2(drop_out2)
-        pool2 = self.pool_layer(conv2)
+        conv1 = self.conv_layer1(self.input_layer)
+        drop_out1 = self.drop_out(conv1)
+        conv1_1 = self.conv_layer1_1(drop_out1)
+        drop_out1_1 = self.drop_out(conv1_1)
+        pool1 = self.pool_layer(drop_out1_1)
+
+        conv2 = self.conv_layer2(pool1)
+        drop_out2 = self.drop_out(conv2)
+        conv2_1 = self.conv_layer2_1(drop_out2)
+        drop_out2_1 = self.drop_out(conv2_1)
+        pool2 = self.pool_layer(drop_out2_1)
+
         flatten = self.flatten(pool2)
-        drop_out3 = self.drop_out(flatten)
-        output_layer = self.output_layer(drop_out3)
+        output_layer = self.output_layer(flatten)
 
         return Model(self.input_layer, output_layer)
 

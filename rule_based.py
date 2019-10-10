@@ -425,6 +425,8 @@ if __name__ == "__main__":
     data_set = rd.read_files(files, MAX_NUM_SIG)
     print()
 
+    total_suc = 0
+    total_fail = 0
     for fn in data_set:
         suc = 0
         fail = 0
@@ -438,3 +440,8 @@ if __name__ == "__main__":
 
         print("[{}] SUC: {} | FAIL: {} | ACC: {:.2f}%\n".format(
             fn, suc, fail, float(suc * 100 / (suc + fail))))
+        total_suc += suc
+        total_fail += fail
+
+    print("\nSUC: {} | FAIL: {} | ACC: {:.2f}%\n".format(
+        total_suc, total_fail, float(total_suc * 100 / (total_suc + total_fail))))

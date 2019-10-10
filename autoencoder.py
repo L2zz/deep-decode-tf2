@@ -56,15 +56,14 @@ class CE(Model):
         """
         Connect layers and build model
         """
-        drop_out1 = self.drop_out(self.input_layer)
-        conv1 = self.conv_layer1(drop_out1)
+        conv1 = self.conv_layer1(self.input_layer)
         pool1 = self.pool_layer(conv1)
-        drop_out2 = self.drop_out(pool1)
-        conv2 = self.conv_layer2(drop_out2)
+        drop_out1 = self.drop_out(pool1)
+        conv2 = self.conv_layer2(drop_out1)
         pool2 = self.pool_layer(conv2)
-        flatten = self.flatten(pool2)
-        drop_out3 = self.drop_out(flatten)
-        output_layer = self.output_layer(drop_out3)
+        drop_out2 = self.drop_out(pool2)
+        flatten = self.flatten(drop_out2)
+        output_layer = self.output_layer(flatten)
 
         return Model(self.input_layer, output_layer)
 

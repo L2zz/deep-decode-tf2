@@ -18,8 +18,9 @@ import rule_based as rb
 
 # Model Parameters
 INPUT = rb.INPUT
-CONV = 2
-KERNEL_SIZE = 3
+CONV1 = 16
+CONV2 = 64
+KERNEL_SIZE = 5
 POOL_SIZE = 2
 OUTPUT = 268
 
@@ -35,8 +36,10 @@ class CE(Model):
         regularizer = regularizers.l2(0.005)
 
         self.input_layer = layers.Input(shape=(INPUT, 1))
-        self.conv_layer = layers.Conv1D(
-            CONV, kernel_size=KERNEL_SIZE, activation="elu", padding="same")
+        self.conv_layer1 = layers.Conv1D(
+            CONV1, kernel_size=KERNEL_SIZE, activation="elu", padding="same")
+        self.conv_layer2 = layers.Conv1D(
+            CONV2, kernel_size=KERNEL_SIZE, activation="elu", padding="same")
         self.pool_layer = layers.MaxPooling1D(POOL_SIZE)
         self.output_layer = layers.Dense(OUTPUT)
 
@@ -54,11 +57,14 @@ class CE(Model):
         Connect layers and build model
         """
         drop_out1 = self.drop_out(self.input_layer)
-        conv = self.conv_layer(drop_out1)
-        pool = self.pool_layer(conv)
-        flatten = self.flatten(pool)
-        drop_out2 = self.drop_out(flatten)
-        output_layer = self.output_layer(drop_out2)
+        conv1 = self.conv_layer1(drop_out1)
+        pool1 = self.pool_layer(conv1)
+        drop_out2 = self.drop_out(pool1)
+        conv2 = self.conv_layer2(drop_out2)
+        pool2 = self.pool_layer(conv2)
+        flatten = self.flatten(pool2)
+        drop_out3 = self.drop_out(flatten)
+        output_layer = self.output_layer(drop_out3)
 
         return Model(self.input_layer, output_layer)
 

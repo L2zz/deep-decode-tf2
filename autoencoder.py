@@ -18,8 +18,10 @@ import rule_based as rb
 
 # Model Parameters
 INPUT = rb.INPUT
-CONV1 = 16
-CONV2 = 64
+CONV1 = 4
+CONV2 = 16
+CONV3 = 32
+CONV4 = 64
 KERNEL_SIZE = 3
 POOL_SIZE = 2
 OUTPUT = 268
@@ -33,52 +35,48 @@ class CE(Model):
     def __init__(self):
         super(CE, self).__init__()
 
-        regularizer = regularizers.l2(0.005)
-
-        self.input_layer = layers.Input(shape=(INPUT, 1))
-        self.conv_layer1 = layers.Conv1D(
-            CONV1, kernel_size=KERNEL_SIZE, activation="elu", padding="same")
-        self.conv_layer1_1 = layers.Conv1D(
-            CONV1, kernel_size=KERNEL_SIZE, activation="elu",
-            padding="same", input_shape = (None, CONV1))
-        self.conv_layer2 = layers.Conv1D(
-            CONV2, kernel_size=KERNEL_SIZE, activation="elu", padding="same")
-        self.conv_layer2_1 = layers.Conv1D(
-            CONV2, kernel_size=KERNEL_SIZE, activation="elu",
-            padding="same", input_shape = (None, CONV2))
-
-        self.pool_layer = layers.MaxPooling1D(POOL_SIZE)
-        self.output_layer = layers.Dense(OUTPUT)
-
-        self.flatten = layers.Flatten()
-        self.drop_out = layers.Dropout(DROPOUT_PROB)
-
-        optimizer = tf.optimizers.Adam(LEARNING_RATE)
-
         self.convencoder = self.build_model()
+        optimizer = tf.optimizers.Adam(LEARNING_RATE)
         self.convencoder.compile(loss="mse", optimizer=optimizer)
         self.convencoder.summary()
+
+    def res_layer(self, x, filters, pooling=False, dropout=0.0):
+        temp = x
+        temp = layers.Conv1D(filters, 3, padding = "same")(temp)
+        temp = layers.BatchNormalization()(temp)
+        temp = layers.Activation("elu")(temp)
+        temp = layers.Conv1D(filters, 3, padding = "same")(temp)
+
+        x = layers.Add()([temp,layers.Conv1D(filters, 3, padding = "same")(x)])
+        if pooling:
+            x = layers.MaxPooling1D(2)(x)
+        if dropout != 0.0:
+            x = layers.Dropout(dropout)(x)
+        x = layers.BatchNormalization()(x)
+        x = layers.Activation("elu")(x)
+        return x
 
     def build_model(self):
         """
         Connect layers and build model
         """
-        conv1 = self.conv_layer1(self.input_layer)
-        drop_out1 = self.drop_out(conv1)
-        conv1_1 = self.conv_layer1_1(drop_out1)
-        drop_out1_1 = self.drop_out(conv1_1)
-        pool1 = self.pool_layer(drop_out1_1)
 
-        conv2 = self.conv_layer2(pool1)
-        drop_out2 = self.drop_out(conv2)
-        conv2_1 = self.conv_layer2_1(drop_out2)
-        drop_out2_1 = self.drop_out(conv2_1)
-        pool2 = self.pool_layer(drop_out2_1)
+        input_layer = layers.Input(shape=(INPUT, 1))
+        x = layers.Conv1D(CONV1, 3, padding="same")(input_layer)
+        x = layers.BatchNormalization()(x)
+        x = layers.Activation("elu")(x)
+        x = self.res_layer(x, CONV2, DROPOUT_PROB)
+        x = self.res_layer(x, CONV2, DROPOUT_PROB)
+        x = self.res_layer(x, CONV2, True, DROPOUT_PROB)
+        x = self.res_layer(x, CONV3, DROPOUT_PROB)
+        x = self.res_layer(x, CONV3, DROPOUT_PROB)
+        x = self.res_layer(x, CONV3, True, DROPOUT_PROB)
+        x = self.res_layer(x, CONV4, DROPOUT_PROB)
+        x = layers.Flatten()(x)
+        x = layers.Dropout(DROPOUT_PROB)(x)
+        output_layer = layers.Dense(OUTPUT)(x)
 
-        flatten = self.flatten(pool2)
-        output_layer = self.output_layer(flatten)
-
-        return Model(self.input_layer, output_layer)
+        return Model(input_layer, output_layer)
 
     def train_model(self, train):
         """
